@@ -260,6 +260,15 @@ Open
                             '${structuredResult!.applicableStandards.isEmpty ? '• Not applicable' : structuredResult!.applicableStandards.map((item) => '• $item').join('\n')}',
                             style: const TextStyle(fontSize: 16),
                           ),
+                        if (structuredResult != null)
+                          const SizedBox(height: 12),
+
+                        if (structuredResult != null)
+                          Text(
+                            'Immediate Actions:\n'
+                            '${structuredResult!.immediateActions.isEmpty ? '• Not applicable' : structuredResult!.immediateActions.map((item) => '• $item').join('\n')}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
                       ],
                     ),
                   ),
