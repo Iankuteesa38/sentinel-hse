@@ -1,0 +1,229 @@
+import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import '../services/storage_service.dart';
+import '../services/ai_hazard_service.dart';
+import '../services/pdf_service.dart';
+import '../models/inspection_record.dart';
+import '../models/hazard_analysis_result.dart';
+
+class AIHazardScannerPage extends StatefulWidget {
+  const AIHazardScannerPage({super.key});
+
+  @override
+  State<AIHazardScannerPage> createState() => _AIHazardScannerPageState();
+}
+
+class _AIHazardScannerPageState extends State<AIHazardScannerPage> {
+  String inspector = "Ian Kuteesa";
+  String location = "ADNOC Buhasa";
+  String result = "No image analyzed yet.";
+  String rawAnalysis = "";
+  HazardAnalysisResult? structuredResult;
+  File? selectedImage;
+  String? currentInspectionId;
+  final ImagePicker picker = ImagePicker();
+  String generateInspectionId() {
+    final now = DateTime.now();
+    final inspectionId = "HSE-${now.year}-${now.millisecondsSinceEpoch}";
+    currentInspectionId = inspectionId;
+    return inspectionId;
+  }
+
+  String extractRiskLevel(String analysis) {
+    final match = RegExp(
+      r'Risk\s*Level\s*:\s*(Critical|High|Medium|Low)',
+      caseSensitive: false,
+    ).firstMatch(analysis);
+
+    if (match == null) return 'Unknown';
+
+    final level = match.group(1)!.toLowerCase();
+
+    return '${level[0].toUpperCase()}${level.substring(1)}';
+  }
+
+  Future<void> takePhoto() async {
+    final XFile? image = await picker.pickImage(source: ImageSource.camera);
+
+    if (image != null) {
+      setState(() {
+        selectedImage = File(image.path);
+      });
+    }
+  }
+
+  Future<void> choosePhoto() async {
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image != null) {
+      setState(() {
+        selectedImage = File(image.path);
+      });
+    }
+  }
+
+  Future<void> analyzeImage() async {
+    if (selectedImage == null) {
+      setState(() {
+        result = 'Please take a photo or choose one from the gallery first.';
+      });
+      return;
+    }
+
+    setState(() {
+      result = 'Analyzing image...';
+    });
+
+    final analysis = await AIHazardService.analyzeImage(selectedImage!);
+    final structuredAnalysis = await AIHazardService.analyzeImageStructured(
+      selectedImage!,
+    );
+    structuredResult = structuredAnalysis;
+    debugPrint(structuredAnalysis?.riskLevel);
+    if (structuredAnalysis != null) {
+      debugPrint("Structured AI received successfully");
+    } else {
+      debugPrint("Structured AI not available");
+    }
+    rawAnalysis = analysis;
+
+    if (!mounted) return;
+
+    final now = DateTime.now();
+    final inspectionId = generateInspectionId();
+
+    setState(() {
+      result =
+          '''
+Inspection ID: $inspectionId
+
+Date: ${now.day}/${now.month}/${now.year}
+Time: ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}
+
+Inspector:
+$inspector
+
+Location:
+$location
+
+AI Hazard Analysis
+
+$analysis
+
+Status:
+Open
+''';
+    });
+    if (!analysis.startsWith('Unable to analyze') &&
+        !analysis.startsWith('Analysis failed')) {
+      final savedImagePath = await StorageService.saveImagePermanently(
+        selectedImage!,
+      );
+
+      final record = InspectionRecord(
+        inspectionId: inspectionId,
+        createdAt: now,
+        inspector: inspector,
+        location: location,
+        analysis: analysis,
+        imagePath: savedImagePath,
+        status: 'Open',
+        riskLevel: extractRiskLevel(analysis),
+      );
+
+      await StorageService.saveInspectionRecord(record);
+      await StorageService.saveHazard(result);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("AI Hazard Scanner")),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            selectedImage == null
+                ? const Icon(Icons.camera_alt, size: 90)
+                : Image.file(selectedImage!, height: 220, fit: BoxFit.cover),
+
+            const SizedBox(height: 20),
+
+            ElevatedButton(
+              onPressed: takePhoto,
+              child: const Text("Take Photo"),
+            ),
+
+            const SizedBox(height: 12),
+
+            ElevatedButton(
+              onPressed: choosePhoto,
+              child: const Text("Choose from Gallery"),
+            ),
+
+            const SizedBox(height: 20),
+
+            ElevatedButton(
+              onPressed: analyzeImage,
+              child: const Text("Analyze Image"),
+            ),
+            const SizedBox(height: 16),
+
+            ElevatedButton.icon(
+              onPressed:
+                  selectedImage == null ||
+                      currentInspectionId == null ||
+                      result.startsWith('No image') ||
+                      result.startsWith('Analyzing') ||
+                      result.contains('Analysis failed') ||
+                      result.contains('Unable to analyze')
+                  ? null
+                  : () async {
+                      await PdfService.generateHazardReport(
+                        inspectionId: currentInspectionId!,
+                        inspector: inspector,
+                        location: location,
+                        analysis: rawAnalysis,
+                        imageFile: selectedImage!,
+                      );
+                    },
+              icon: const Icon(Icons.picture_as_pdf),
+              label: const Text('Generate PDF Report'),
+            ),
+            const SizedBox(height: 30),
+
+            Expanded(
+              child: SingleChildScrollView(
+                child: Card(
+                  elevation: 3,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (structuredResult != null)
+                          Text(
+                            'Risk Level: ${structuredResult!.riskLevel}  •  '
+                            'AI Confidence: ${structuredResult!.confidenceScore}%',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        if (structuredResult != null)
+                          const SizedBox(height: 16),
+                        Text(result, style: const TextStyle(fontSize: 16)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
