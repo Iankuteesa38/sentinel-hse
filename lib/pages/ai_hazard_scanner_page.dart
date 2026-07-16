@@ -278,6 +278,15 @@ Open
                             '${structuredResult!.correctiveActions.isEmpty ? '• Not applicable' : structuredResult!.correctiveActions.map((item) => '• $item').join('\n')}',
                             style: const TextStyle(fontSize: 16),
                           ),
+                        if (structuredResult != null)
+                          const SizedBox(height: 12),
+
+                        if (structuredResult != null)
+                          Text(
+                            'Preventive Actions:\n'
+                            '${structuredResult!.preventiveActions.isEmpty ? '• Not applicable' : structuredResult!.preventiveActions.map((item) => '• $item').join('\n')}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
                       ],
                     ),
                   ),
