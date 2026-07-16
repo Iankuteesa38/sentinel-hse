@@ -212,6 +212,16 @@ Open
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                        if (structuredResult != null) const SizedBox(height: 8),
+
+                        if (structuredResult != null)
+                          Text(
+                            'Hazard Category: ${structuredResult!.hazardCategory}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         if (structuredResult != null)
                           const SizedBox(height: 16),
                         Text(result, style: const TextStyle(fontSize: 16)),
