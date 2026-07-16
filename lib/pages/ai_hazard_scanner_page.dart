@@ -224,7 +224,8 @@ Open
                           ),
                         if (structuredResult != null)
                           const SizedBox(height: 16),
-                        Text(result, style: const TextStyle(fontSize: 16)),
+                        if (structuredResult == null)
+                          Text(result, style: const TextStyle(fontSize: 16)),
                         if (structuredResult != null) const SizedBox(height: 8),
 
                         if (structuredResult != null)
