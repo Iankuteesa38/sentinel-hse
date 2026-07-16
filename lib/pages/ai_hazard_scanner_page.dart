@@ -251,6 +251,15 @@ Open
                             '${structuredResult!.requiredPermits.isEmpty ? '• Not applicable' : structuredResult!.requiredPermits.map((item) => '• $item').join('\n')}',
                             style: const TextStyle(fontSize: 16),
                           ),
+                        if (structuredResult != null)
+                          const SizedBox(height: 12),
+
+                        if (structuredResult != null)
+                          Text(
+                            'Applicable Standards:\n'
+                            '${structuredResult!.applicableStandards.isEmpty ? '• Not applicable' : structuredResult!.applicableStandards.map((item) => '• $item').join('\n')}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
                       ],
                     ),
                   ),
