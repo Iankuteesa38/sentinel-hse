@@ -225,6 +225,14 @@ Open
                         if (structuredResult != null)
                           const SizedBox(height: 16),
                         Text(result, style: const TextStyle(fontSize: 16)),
+                        if (structuredResult != null) const SizedBox(height: 8),
+
+                        if (structuredResult != null)
+                          Text(
+                            'Likelihood: ${structuredResult!.likelihood}  •  '
+                            'Severity: ${structuredResult!.severity}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
                       ],
                     ),
                   ),
