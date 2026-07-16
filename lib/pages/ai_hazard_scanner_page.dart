@@ -233,6 +233,15 @@ Open
                             'Severity: ${structuredResult!.severity}',
                             style: const TextStyle(fontSize: 16),
                           ),
+                        if (structuredResult != null)
+                          const SizedBox(height: 12),
+
+                        if (structuredResult != null)
+                          Text(
+                            'Required PPE:\n'
+                            '${structuredResult!.requiredPpe.isEmpty ? '• Not applicable' : structuredResult!.requiredPpe.map((item) => '• $item').join('\n')}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
                       ],
                     ),
                   ),
