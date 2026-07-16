@@ -287,6 +287,15 @@ Open
                             '${structuredResult!.preventiveActions.isEmpty ? '• Not applicable' : structuredResult!.preventiveActions.map((item) => '• $item').join('\n')}',
                             style: const TextStyle(fontSize: 16),
                           ),
+                        if (structuredResult != null)
+                          const SizedBox(height: 12),
+
+                        if (structuredResult != null)
+                          Text(
+                            'Hazards Found:\n'
+                            '${structuredResult!.hazards.isEmpty ? '• No visible hazards identified' : structuredResult!.hazards.map((item) => '• $item').join('\n')}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
                       ],
                     ),
                   ),
