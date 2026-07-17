@@ -145,318 +145,364 @@ Open
       appBar: AppBar(title: const Text("AI Hazard Scanner")),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            selectedImage == null
-                ? const Icon(Icons.camera_alt, size: 90)
-                : Image.file(selectedImage!, height: 220, fit: BoxFit.cover),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              selectedImage == null
+                  ? const Icon(Icons.camera_alt, size: 90)
+                  : Image.file(selectedImage!, height: 220, fit: BoxFit.cover),
 
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            ElevatedButton(
-              onPressed: takePhoto,
-              child: const Text("Take Photo"),
-            ),
+              ElevatedButton(
+                onPressed: takePhoto,
+                child: const Text("Take Photo"),
+              ),
 
-            const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-            ElevatedButton(
-              onPressed: choosePhoto,
-              child: const Text("Choose from Gallery"),
-            ),
+              ElevatedButton(
+                onPressed: choosePhoto,
+                child: const Text("Choose from Gallery"),
+              ),
 
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            ElevatedButton(
-              onPressed: analyzeImage,
-              child: const Text("Analyze Image"),
-            ),
-            const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: analyzeImage,
+                child: const Text("Analyze Image"),
+              ),
+              const SizedBox(height: 16),
 
-            ElevatedButton.icon(
-              onPressed:
-                  selectedImage == null ||
-                      currentInspectionId == null ||
-                      structuredResult == null
-                  ? null
-                  : () async {
-                      await PdfService.generateHazardReport(
-                        inspectionId: currentInspectionId!,
-                        inspector: inspector,
-                        location: location,
-                        analysis: rawAnalysis,
-                        imageFile: selectedImage!,
-                      );
-                    },
-              icon: const Icon(Icons.picture_as_pdf),
-              label: const Text('Generate PDF Report'),
-            ),
-            const SizedBox(height: 30),
+              ElevatedButton.icon(
+                onPressed:
+                    selectedImage == null ||
+                        currentInspectionId == null ||
+                        structuredResult == null
+                    ? null
+                    : () async {
+                        await PdfService.generateHazardReport(
+                          inspectionId: currentInspectionId!,
+                          inspector: inspector,
+                          location: location,
+                          analysis: rawAnalysis,
+                          imageFile: selectedImage!,
+                        );
+                      },
+                icon: const Icon(Icons.picture_as_pdf),
+                label: const Text('Generate PDF Report'),
+              ),
+              const SizedBox(height: 30),
 
-            Expanded(
-              child: SingleChildScrollView(
-                child: Card(
-                  elevation: 3,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (structuredResult != null)
-                          Card(
-                            elevation: 2,
-                            color: Colors.orange.shade50,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.warning_amber_rounded,
-                                    size: 32,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Risk Level: ${structuredResult!.riskLevel}',
-                                          style: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
+              Card(
+                elevation: 3,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (structuredResult != null)
+                        Card(
+                          elevation: 2,
+                          color: Colors.orange.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.warning_amber_rounded,
+                                  size: 32,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Risk Level: ${structuredResult!.riskLevel}',
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
                                         ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'AI Confidence: '
-                                          '${structuredResult!.confidenceScore}%',
-                                          style: const TextStyle(fontSize: 16),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        if (structuredResult != null) const SizedBox(height: 8),
-
-                        if (structuredResult != null)
-                          Card(
-                            elevation: 2,
-                            color: Colors.blue.shade50,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.category_outlined, size: 28),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Hazard Category:\n'
-                                      '${structuredResult!.hazardCategory}',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
                                       ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        if (structuredResult != null)
-                          const SizedBox(height: 16),
-                        if (structuredResult == null)
-                          Text(result, style: const TextStyle(fontSize: 16)),
-                        if (structuredResult != null) const SizedBox(height: 8),
-
-                        if (structuredResult != null)
-                          Card(
-                            elevation: 2,
-                            color: Colors.green.shade50,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(
-                                    Icons.analytics_outlined,
-                                    size: 28,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Likelihood: ${structuredResult!.likelihood}\n'
-                                      'Severity: ${structuredResult!.severity}',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'AI Confidence: '
+                                        '${structuredResult!.confidenceScore}%',
+                                        style: const TextStyle(fontSize: 16),
                                       ),
-                                    ),
+                                    ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
-                        if (structuredResult != null)
-                          const SizedBox(height: 12),
+                        ),
+                      if (structuredResult != null) const SizedBox(height: 8),
 
-                        if (structuredResult != null)
-                          Text(
-                            'Required PPE:\n'
-                            '${structuredResult!.requiredPpe.isEmpty ? '• Not applicable' : structuredResult!.requiredPpe.map((item) => '• $item').join('\n')}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        if (structuredResult != null)
-                          const SizedBox(height: 12),
-
-                        if (structuredResult != null)
-                          Text(
-                            'Required Permits:\n'
-                            '${structuredResult!.requiredPermits.isEmpty ? '• Not applicable' : structuredResult!.requiredPermits.map((item) => '• $item').join('\n')}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        if (structuredResult != null)
-                          const SizedBox(height: 12),
-
-                        if (structuredResult != null)
-                          Text(
-                            'Applicable Standards:\n'
-                            '${structuredResult!.applicableStandards.isEmpty ? '• Not applicable' : structuredResult!.applicableStandards.map((item) => '• $item').join('\n')}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        if (structuredResult != null)
-                          const SizedBox(height: 12),
-
-                        if (structuredResult != null)
-                          Card(
-                            elevation: 2,
-                            color: Colors.red.shade50,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(
-                                    Icons.crisis_alert_outlined,
-                                    size: 28,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Immediate Actions:\n'
-                                      '${structuredResult!.immediateActions.isEmpty ? '• Not applicable' : structuredResult!.immediateActions.map((item) => '• $item').join('\n')}',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                      if (structuredResult != null)
+                        Card(
+                          elevation: 2,
+                          color: Colors.blue.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.category_outlined, size: 28),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Hazard Category:\n'
+                                    '${structuredResult!.hazardCategory}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
-                        if (structuredResult != null)
-                          const SizedBox(height: 12),
+                        ),
+                      if (structuredResult != null) const SizedBox(height: 16),
+                      if (structuredResult == null)
+                        Text(result, style: const TextStyle(fontSize: 16)),
+                      if (structuredResult != null) const SizedBox(height: 8),
 
-                        if (structuredResult != null)
-                          Card(
-                            elevation: 2,
-                            color: Colors.deepOrange.shade50,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(
-                                    Icons.build_circle_outlined,
-                                    size: 28,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Corrective Actions:\n'
-                                      '${structuredResult!.correctiveActions.isEmpty ? '• Not applicable' : structuredResult!.correctiveActions.map((item) => '• $item').join('\n')}',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                      if (structuredResult != null)
+                        Card(
+                          elevation: 2,
+                          color: Colors.green.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.analytics_outlined, size: 28),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Likelihood: ${structuredResult!.likelihood}\n'
+                                    'Severity: ${structuredResult!.severity}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
-                        if (structuredResult != null)
-                          const SizedBox(height: 12),
-
-                        if (structuredResult != null)
-                          Card(
-                            elevation: 2,
-                            color: Colors.green.shade50,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(Icons.shield_outlined, size: 28),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Preventive Actions:\n'
-                                      '${structuredResult!.preventiveActions.isEmpty ? '• Not applicable' : structuredResult!.preventiveActions.map((item) => '• $item').join('\n')}',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                        ),
+                      if (structuredResult != null) const SizedBox(height: 16),
+                      if (structuredResult != null)
+                        Card(
+                          elevation: 2,
+                          color: Colors.indigo.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.health_and_safety_outlined,
+                                  size: 28,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Required PPE:\n'
+                                    '${structuredResult!.requiredPpe.isEmpty ? '• Not applicable' : structuredResult!.requiredPpe.map((item) => '• $item').join('\n')}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
-                        if (structuredResult != null)
-                          const SizedBox(height: 12),
+                        ),
+                      if (structuredResult != null) const SizedBox(height: 16),
 
-                        if (structuredResult != null)
-                          Card(
-                            elevation: 2,
-                            color: Colors.amber.shade50,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(
-                                    Icons.report_problem_outlined,
-                                    size: 28,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Hazards Found:\n'
-                                      '${structuredResult!.hazards.isEmpty ? '• No visible hazards identified' : structuredResult!.hazards.map((item) => '• $item').join('\n')}',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                      if (structuredResult != null)
+                        Card(
+                          elevation: 2,
+                          color: Colors.purple.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.assignment_outlined, size: 28),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Required Permits:\n'
+                                    '${structuredResult!.requiredPermits.isEmpty ? '• Not applicable' : structuredResult!.requiredPermits.map((item) => '• $item').join('\n')}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
-                      ],
-                    ),
+                        ),
+                      if (structuredResult != null) const SizedBox(height: 16),
+
+                      if (structuredResult != null)
+                        Card(
+                          elevation: 2,
+                          color: Colors.teal.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.menu_book_outlined, size: 28),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Applicable Standards:\n'
+                                    '${structuredResult!.applicableStandards.isEmpty ? '• Not applicable' : structuredResult!.applicableStandards.map((item) => '• $item').join('\n')}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      if (structuredResult != null) const SizedBox(height: 16),
+
+                      if (structuredResult != null)
+                        Card(
+                          elevation: 2,
+                          color: Colors.red.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.crisis_alert_outlined,
+                                  size: 28,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Immediate Actions:\n'
+                                    '${structuredResult!.immediateActions.isEmpty ? '• Not applicable' : structuredResult!.immediateActions.map((item) => '• $item').join('\n')}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      if (structuredResult != null) const SizedBox(height: 16),
+
+                      if (structuredResult != null)
+                        Card(
+                          elevation: 2,
+                          color: Colors.deepOrange.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.build_circle_outlined,
+                                  size: 28,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Corrective Actions:\n'
+                                    '${structuredResult!.correctiveActions.isEmpty ? '• Not applicable' : structuredResult!.correctiveActions.map((item) => '• $item').join('\n')}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      if (structuredResult != null) const SizedBox(height: 16),
+
+                      if (structuredResult != null)
+                        Card(
+                          elevation: 2,
+                          color: Colors.green.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.shield_outlined, size: 28),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Preventive Actions:\n'
+                                    '${structuredResult!.preventiveActions.isEmpty ? '• Not applicable' : structuredResult!.preventiveActions.map((item) => '• $item').join('\n')}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      if (structuredResult != null) const SizedBox(height: 16),
+
+                      if (structuredResult != null)
+                        Card(
+                          elevation: 2,
+                          color: Colors.amber.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.report_problem_outlined,
+                                  size: 28,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Hazards Found:\n'
+                                    '${structuredResult!.hazards.isEmpty ? '• No visible hazards identified' : structuredResult!.hazards.map((item) => '• $item').join('\n')}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
+              ), // Card
+            ],
+          ), // Column
+        ), // SingleChildScrollView
+      ), // Padding
     );
   }
 }
