@@ -286,84 +286,45 @@ Open
                         ),
                       if (structuredResult != null) const SizedBox(height: 16),
                       if (structuredResult != null)
-                        Card(
-                          elevation: 2,
-                          color: Colors.indigo.shade50,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(
-                                  Icons.health_and_safety_outlined,
-                                  size: 28,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'Required PPE:\n'
-                                    '${structuredResult!.requiredPpe.isEmpty ? '• Not applicable' : structuredResult!.requiredPpe.map((item) => '• $item').join('\n')}',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        InfoCard(
+                          backgroundColor: Colors.indigo.shade50,
+                          icon: Icons.health_and_safety_outlined,
+                          child: Text(
+                            'Required PPE:\n'
+                            '${structuredResult!.requiredPpe.isEmpty ? '• Not applicable' : structuredResult!.requiredPpe.map((item) => '• $item').join('\n')}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
                       if (structuredResult != null) const SizedBox(height: 16),
 
                       if (structuredResult != null)
-                        Card(
-                          elevation: 2,
-                          color: Colors.purple.shade50,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(Icons.assignment_outlined, size: 28),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'Required Permits:\n'
-                                    '${structuredResult!.requiredPermits.isEmpty ? '• Not applicable' : structuredResult!.requiredPermits.map((item) => '• $item').join('\n')}',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        InfoCard(
+                          backgroundColor: Colors.purple.shade50,
+                          icon: Icons.assignment_outlined,
+                          child: Text(
+                            'Required Permits:\n'
+                            '${structuredResult!.requiredPermits.isEmpty ? '• Not applicable' : structuredResult!.requiredPermits.map((item) => '• $item').join('\n')}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
                       if (structuredResult != null) const SizedBox(height: 16),
 
                       if (structuredResult != null)
-                        Card(
-                          elevation: 2,
-                          color: Colors.teal.shade50,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(Icons.menu_book_outlined, size: 28),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'Applicable Standards:\n'
-                                    '${structuredResult!.applicableStandards.isEmpty ? '• Not applicable' : structuredResult!.applicableStandards.map((item) => '• $item').join('\n')}',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        InfoCard(
+                          backgroundColor: Colors.teal.shade50,
+                          icon: Icons.menu_book_outlined,
+                          child: Text(
+                            'Applicable Standards:\n'
+                            '${structuredResult!.applicableStandards.isEmpty ? '• Not applicable' : structuredResult!.applicableStandards.map((item) => '• $item').join('\n')}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
@@ -457,41 +418,26 @@ Open
                       if (structuredResult != null) const SizedBox(height: 16),
 
                       if (structuredResult != null)
-                        Card(
-                          elevation: 2,
-                          color: Colors.amber.shade50,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(
-                                  Icons.report_problem_outlined,
-                                  size: 28,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'Hazards Found:\n'
-                                    '${structuredResult!.hazards.isEmpty ? '• No visible hazards identified' : structuredResult!.hazards.map((item) => '• $item').join('\n')}',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        InfoCard(
+                          backgroundColor: Colors.amber.shade50,
+                          icon: Icons.report_problem_outlined,
+                          child: Text(
+                            'Hazards Found:\n'
+                            '${structuredResult!.hazards.isEmpty ? '• No visible hazards identified' : structuredResult!.hazards.map((item) => '• $item').join('\n')}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
-              ), // Card
-            ],
-          ), // Column
+                        ), // InfoCard
+                    ], // Results Column
+                  ), // Results Column
+                ), // Results Padding
+              ), // Results Card
+            ], // Main Column
+          ), // Main Column
         ), // SingleChildScrollView
-      ), // Padding
-    );
+      ), // Page Padding
+    ); // Scaffold
   }
 }
