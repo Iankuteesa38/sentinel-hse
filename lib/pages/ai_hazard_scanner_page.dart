@@ -243,11 +243,27 @@ Open
                         if (structuredResult != null) const SizedBox(height: 8),
 
                         if (structuredResult != null)
-                          Text(
-                            'Hazard Category: ${structuredResult!.hazardCategory}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                          Card(
+                            elevation: 2,
+                            color: Colors.blue.shade50,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.category_outlined, size: 28),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Hazard Category:\n'
+                                      '${structuredResult!.hazardCategory}',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         if (structuredResult != null)
@@ -257,10 +273,32 @@ Open
                         if (structuredResult != null) const SizedBox(height: 8),
 
                         if (structuredResult != null)
-                          Text(
-                            'Likelihood: ${structuredResult!.likelihood}  •  '
-                            'Severity: ${structuredResult!.severity}',
-                            style: const TextStyle(fontSize: 16),
+                          Card(
+                            elevation: 2,
+                            color: Colors.green.shade50,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(
+                                    Icons.analytics_outlined,
+                                    size: 28,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Likelihood: ${structuredResult!.likelihood}\n'
+                                      'Severity: ${structuredResult!.severity}',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         if (structuredResult != null)
                           const SizedBox(height: 12),
@@ -320,10 +358,32 @@ Open
                           const SizedBox(height: 12),
 
                         if (structuredResult != null)
-                          Text(
-                            'Hazards Found:\n'
-                            '${structuredResult!.hazards.isEmpty ? '• No visible hazards identified' : structuredResult!.hazards.map((item) => '• $item').join('\n')}',
-                            style: const TextStyle(fontSize: 16),
+                          Card(
+                            elevation: 2,
+                            color: Colors.amber.shade50,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(
+                                    Icons.report_problem_outlined,
+                                    size: 28,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Hazards Found:\n'
+                                      '${structuredResult!.hazards.isEmpty ? '• No visible hazards identified' : structuredResult!.hazards.map((item) => '• $item').join('\n')}',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                       ],
                     ),
