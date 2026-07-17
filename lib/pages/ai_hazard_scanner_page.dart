@@ -393,10 +393,29 @@ Open
                           const SizedBox(height: 12),
 
                         if (structuredResult != null)
-                          Text(
-                            'Preventive Actions:\n'
-                            '${structuredResult!.preventiveActions.isEmpty ? '• Not applicable' : structuredResult!.preventiveActions.map((item) => '• $item').join('\n')}',
-                            style: const TextStyle(fontSize: 16),
+                          Card(
+                            elevation: 2,
+                            color: Colors.green.shade50,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.shield_outlined, size: 28),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Preventive Actions:\n'
+                                      '${structuredResult!.preventiveActions.isEmpty ? '• Not applicable' : structuredResult!.preventiveActions.map((item) => '• $item').join('\n')}',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         if (structuredResult != null)
                           const SizedBox(height: 12),
