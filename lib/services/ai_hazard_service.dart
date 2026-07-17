@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import '../models/hazard_analysis_result.dart';
+import '../models/ai_hazard_response.dart';
 
 class AIHazardService {
   // We will replace this with your secure backend address later.
@@ -69,6 +70,46 @@ class AIHazardService {
       return null;
     } catch (_) {
       return null;
+    }
+  }
+
+  static Future<AIHazardResponse> analyzeImageCombined(File imageFile) async {
+    try {
+      final request = http.MultipartRequest('POST', Uri.parse(backendUrl));
+
+      request.files.add(
+        await http.MultipartFile.fromPath('image', imageFile.path),
+      );
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        final structuredData = data['structuredAnalysis'];
+
+        return AIHazardResponse(
+          analysis:
+              data['analysis']?.toString() ??
+              'No hazard analysis was returned.',
+          structuredAnalysis: structuredData is Map
+              ? HazardAnalysisResult.fromJson(
+                  Map<String, dynamic>.from(structuredData),
+                )
+              : null,
+        );
+      }
+
+      return AIHazardResponse(
+        analysis:
+            'Analysis failed: ${data['error']?.toString() ?? response.body}',
+        structuredAnalysis: null,
+      );
+    } catch (error) {
+      return AIHazardResponse(
+        analysis: 'Unable to analyze the image: $error',
+        structuredAnalysis: null,
+      );
     }
   }
 }

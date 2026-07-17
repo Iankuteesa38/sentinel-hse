@@ -75,10 +75,12 @@ class _AIHazardScannerPageState extends State<AIHazardScannerPage> {
       result = 'Analyzing image...';
     });
 
-    final analysis = await AIHazardService.analyzeImage(selectedImage!);
-    final structuredAnalysis = await AIHazardService.analyzeImageStructured(
+    final combinedResponse = await AIHazardService.analyzeImageCombined(
       selectedImage!,
     );
+
+    final analysis = combinedResponse.analysis;
+    final structuredAnalysis = combinedResponse.structuredAnalysis;
     structuredResult = structuredAnalysis;
     debugPrint(structuredAnalysis?.riskLevel);
     if (structuredAnalysis != null) {
@@ -175,10 +177,7 @@ Open
               onPressed:
                   selectedImage == null ||
                       currentInspectionId == null ||
-                      result.startsWith('No image') ||
-                      result.startsWith('Analyzing') ||
-                      result.contains('Analysis failed') ||
-                      result.contains('Unable to analyze')
+                      structuredResult == null
                   ? null
                   : () async {
                       await PdfService.generateHazardReport(
@@ -204,12 +203,41 @@ Open
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (structuredResult != null)
-                          Text(
-                            'Risk Level: ${structuredResult!.riskLevel}  •  '
-                            'AI Confidence: ${structuredResult!.confidenceScore}%',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                          Card(
+                            elevation: 2,
+                            color: Colors.orange.shade50,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.warning_amber_rounded,
+                                    size: 32,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Risk Level: ${structuredResult!.riskLevel}',
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'AI Confidence: '
+                                          '${structuredResult!.confidenceScore}%',
+                                          style: const TextStyle(fontSize: 16),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         if (structuredResult != null) const SizedBox(height: 8),
