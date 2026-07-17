@@ -331,19 +331,63 @@ Open
                           const SizedBox(height: 12),
 
                         if (structuredResult != null)
-                          Text(
-                            'Immediate Actions:\n'
-                            '${structuredResult!.immediateActions.isEmpty ? '• Not applicable' : structuredResult!.immediateActions.map((item) => '• $item').join('\n')}',
-                            style: const TextStyle(fontSize: 16),
+                          Card(
+                            elevation: 2,
+                            color: Colors.red.shade50,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(
+                                    Icons.crisis_alert_outlined,
+                                    size: 28,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Immediate Actions:\n'
+                                      '${structuredResult!.immediateActions.isEmpty ? '• Not applicable' : structuredResult!.immediateActions.map((item) => '• $item').join('\n')}',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         if (structuredResult != null)
                           const SizedBox(height: 12),
 
                         if (structuredResult != null)
-                          Text(
-                            'Corrective Actions:\n'
-                            '${structuredResult!.correctiveActions.isEmpty ? '• Not applicable' : structuredResult!.correctiveActions.map((item) => '• $item').join('\n')}',
-                            style: const TextStyle(fontSize: 16),
+                          Card(
+                            elevation: 2,
+                            color: Colors.deepOrange.shade50,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(
+                                    Icons.build_circle_outlined,
+                                    size: 28,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Corrective Actions:\n'
+                                      '${structuredResult!.correctiveActions.isEmpty ? '• Not applicable' : structuredResult!.correctiveActions.map((item) => '• $item').join('\n')}',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         if (structuredResult != null)
                           const SizedBox(height: 12),
