@@ -6,6 +6,8 @@ import '../services/ai_hazard_service.dart';
 import '../services/pdf_service.dart';
 import '../models/inspection_record.dart';
 import '../models/hazard_analysis_result.dart';
+import '../widgets/risk_badge.dart';
+import '../widgets/info_card.dart';
 
 class AIHazardScannerPage extends StatefulWidget {
   const AIHazardScannerPage({super.key});
@@ -234,29 +236,8 @@ Open
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                          vertical: 8,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: getRiskColor(
-                                            structuredResult!.riskLevel,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            20,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          structuredResult!.riskLevel
-                                              .toUpperCase(),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                            letterSpacing: 1.2,
-                                          ),
-                                        ),
+                                      RiskBadge(
+                                        riskLevel: structuredResult!.riskLevel,
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
@@ -274,26 +255,15 @@ Open
                       if (structuredResult != null) const SizedBox(height: 8),
 
                       if (structuredResult != null)
-                        Card(
-                          elevation: 2,
-                          color: Colors.blue.shade50,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.category_outlined, size: 28),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'Hazard Category:\n'
-                                    '${structuredResult!.hazardCategory}',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        InfoCard(
+                          backgroundColor: Colors.blue.shade50,
+                          icon: Icons.category_outlined,
+                          child: Text(
+                            'Hazard Category:\n'
+                            '${structuredResult!.hazardCategory}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
@@ -301,29 +271,16 @@ Open
                       if (structuredResult == null)
                         Text(result, style: const TextStyle(fontSize: 16)),
                       if (structuredResult != null) const SizedBox(height: 8),
-
                       if (structuredResult != null)
-                        Card(
-                          elevation: 2,
-                          color: Colors.green.shade50,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(Icons.analytics_outlined, size: 28),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'Likelihood: ${structuredResult!.likelihood}\n'
-                                    'Severity: ${structuredResult!.severity}',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        InfoCard(
+                          backgroundColor: Colors.green.shade50,
+                          icon: Icons.analytics_outlined,
+                          child: Text(
+                            'Likelihood: ${structuredResult!.likelihood}\n'
+                            'Severity: ${structuredResult!.severity}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
