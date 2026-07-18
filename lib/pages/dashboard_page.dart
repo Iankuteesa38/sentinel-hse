@@ -12,6 +12,9 @@ import 'ai_hazard_scanner_page.dart';
 import '../services/storage_service.dart';
 import 'inspection_history_page.dart';
 import 'pdf_reports_page.dart';
+import '../features/risk_assessment/pages/risk_assessment_page.dart';
+import '../features/jsa/pages/jsa_page.dart';
+import '../features/toolbox_talk/pages/toolbox_talk_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -935,6 +938,40 @@ class _DashboardPageState extends State<DashboardPage> {
                     Icons.camera_alt,
                     Colors.teal,
                     () => openAIHazardScanner(context),
+                  ),
+                  moduleCard(
+                    context,
+                    'AI Risk Assessment',
+                    Icons.assignment_turned_in_outlined,
+                    Colors.blue,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const RiskAssessmentPage(),
+                      ),
+                    ),
+                  ),
+                  moduleCard(
+                    context,
+                    'AI JSA',
+                    Icons.fact_check_outlined,
+                    Colors.orange,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const JsaPage()),
+                    ),
+                  ),
+                  moduleCard(
+                    context,
+                    'AI Toolbox Talk',
+                    Icons.record_voice_over_outlined,
+                    Colors.green,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ToolboxTalkPage(),
+                      ),
+                    ),
                   ),
                   moduleCard(
                     context,

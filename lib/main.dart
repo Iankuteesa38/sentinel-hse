@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'pages/dashboard_page.dart';
+import 'core/theme/app_theme.dart';
 
 void main() {
   runApp(const SentinelHSEApp());
@@ -13,10 +14,8 @@ class SentinelHSEApp extends StatelessWidget {
     return MaterialApp(
       title: 'Sentinel HSE',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        fontFamily: 'Arial',
-        useMaterial3: true,
-      ),
+      
+      theme: AppTheme.lightTheme,
       home: const DashboardPage(),
     );
   }
