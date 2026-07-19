@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
 import '../services/pdf_service.dart';
 import 'ai_assistant_page.dart';
+import 'incident_details_page.dart';
 
 class IncidentHistoryPage extends StatefulWidget {
   const IncidentHistoryPage({super.key});
@@ -35,15 +36,16 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
       return;
     }
 
-    if (currentIncident.contains('Status: Open')) {
+    final statusPattern = RegExp(
+      r'^Status:\s*.*$',
+      caseSensitive: false,
+      multiLine: true,
+    );
+
+    if (statusPattern.hasMatch(currentIncident)) {
       updatedIncidents[index] = currentIncident.replaceFirst(
-        'Status: Open',
+        statusPattern,
         'Status: Closed',
-      );
-    } else if (currentIncident.contains('status: Open')) {
-      updatedIncidents[index] = currentIncident.replaceFirst(
-        'status: Open',
-        'status: Closed',
       );
     } else {
       updatedIncidents[index] = '$currentIncident\nStatus: Closed';
@@ -56,6 +58,60 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
     setState(() {
       incidents = updatedIncidents;
     });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Incident closed successfully')),
+    );
+  }
+
+  Future<void> deleteIncident(int index) async {
+    final updatedIncidents = List<String>.from(incidents);
+
+    if (index < 0 || index >= updatedIncidents.length) {
+      return;
+    }
+
+    updatedIncidents.removeAt(index);
+
+    await StorageService.saveIncidents(updatedIncidents);
+
+    if (!mounted) return;
+
+    setState(() {
+      incidents = updatedIncidents;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Incident deleted successfully')),
+    );
+  }
+
+  Future<void> confirmDeleteIncident(int index) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete incident?'),
+          content: const Text(
+            'This incident report will be permanently deleted.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete == true) {
+      await deleteIncident(index);
+    }
   }
 
   @override
@@ -74,6 +130,15 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
                     leading: const Icon(Icons.report_problem),
                     title: Text("Incident ${index + 1}"),
                     subtitle: Text(incidents[index]),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              IncidentDetailsPage(incident: incidents[index]),
+                        ),
+                      );
+                    },
                     trailing: PopupMenuButton<String>(
                       onSelected: (value) async {
                         if (value == 'pdf') {
@@ -123,7 +188,6 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
                             location: location,
                             investigationSummary: incidentText,
                           );
-                        } else if (value == 'close') {
                         } else if (value == 'ai') {
                           final incidentText = incidents[index];
 
@@ -164,7 +228,9 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
                             ),
                           );
                         } else if (value == 'close') {
-                          closeIncident(index);
+                          await closeIncident(index);
+                        } else if (value == 'delete') {
+                          await confirmDeleteIncident(index);
                         }
                       },
                       itemBuilder: (context) => [
@@ -179,6 +245,10 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
                         const PopupMenuItem(
                           value: 'close',
                           child: Text('Close Incident'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Delete Incident'),
                         ),
                       ],
                     ),
