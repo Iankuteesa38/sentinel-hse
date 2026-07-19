@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import '../services/storage_service.dart';
+import '../models/inspection_record.dart';
 
 class InspectionPage extends StatefulWidget {
   const InspectionPage({super.key});
@@ -12,6 +13,9 @@ class InspectionPage extends StatefulWidget {
 
 class _InspectionPageState extends State<InspectionPage> {
   final ImagePicker _picker = ImagePicker();
+  final TextEditingController projectController = TextEditingController();
+  final TextEditingController locationController = TextEditingController();
+  final TextEditingController inspectorController = TextEditingController();
   File? _inspectionImage;
   bool housekeeping = false;
   bool ppe = false;
@@ -30,8 +34,22 @@ class _InspectionPageState extends State<InspectionPage> {
   }
 
   String _generateInspectionData() {
+    final project = projectController.text.trim().isEmpty
+        ? 'Not specified'
+        : projectController.text.trim();
+
+    final location = locationController.text.trim().isEmpty
+        ? 'Not specified'
+        : locationController.text.trim();
+
+    final inspector = inspectorController.text.trim().isEmpty
+        ? 'Not specified'
+        : inspectorController.text.trim();
+
     return '''
-Project: Daily Site Inspection
+Project: $project
+Location: $location
+Inspector: $inspector
 Date: ${DateTime.now()}
 Housekeeping: $housekeeping
 PPE Compliance: $ppe
@@ -51,18 +69,18 @@ Photo: ${_inspectionImage?.path ?? "No photo"}
         padding: const EdgeInsets.all(16),
         children: [
           const Text("Project", style: TextStyle(fontWeight: FontWeight.bold)),
-          const TextField(),
+          TextField(controller: projectController),
           const SizedBox(height: 20),
 
           const Text("Location", style: TextStyle(fontWeight: FontWeight.bold)),
-          const TextField(),
+          TextField(controller: locationController),
           const SizedBox(height: 20),
 
           const Text(
             "Inspector",
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
-          const TextField(),
+          TextField(controller: inspectorController),
           const SizedBox(height: 30),
 
           const Text(
@@ -161,12 +179,31 @@ Photo: ${_inspectionImage?.path ?? "No photo"}
                 );
               }
 
-              await StorageService.saveInspection(
-                _generateInspectionData().replaceAll(
-                  _inspectionImage?.path ?? "No photo",
-                  photoPath,
-                ),
+              final now = DateTime.now();
+
+              final inspectionData = _generateInspectionData().replaceAll(
+                _inspectionImage?.path ?? "No photo",
+                photoPath,
               );
+
+              await StorageService.saveInspection(inspectionData);
+
+              final inspectionRecord = InspectionRecord(
+                inspectionId: 'INS-${now.millisecondsSinceEpoch}',
+                inspector: inspectorController.text.trim().isEmpty
+                    ? 'Not specified'
+                    : inspectorController.text.trim(),
+                location: locationController.text.trim().isEmpty
+                    ? 'Not specified'
+                    : locationController.text.trim(),
+                analysis: inspectionData,
+                imagePath: photoPath == 'No photo' ? '' : photoPath,
+                createdAt: now,
+                status: 'Open',
+                riskLevel: 'Not assessed',
+              );
+
+              await StorageService.saveInspectionRecord(inspectionRecord);
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(

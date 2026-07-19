@@ -25,6 +25,7 @@ class _InspectionHistoryPageState extends State<InspectionHistoryPage> {
   }
 
   Future<void> loadInspections() async {
+    await StorageService.migrateLegacyHazardRecords();
     final savedInspections = await StorageService.getInspectionRecords();
 
     if (!mounted) return;

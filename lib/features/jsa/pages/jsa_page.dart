@@ -4,6 +4,7 @@ import '../models/jsa_result.dart';
 import '../services/jsa_service.dart';
 import '../services/jsa_pdf_service.dart';
 import '../widgets/jsa_card.dart';
+import '../storage/jsa_storage_service.dart';
 
 class JsaPage extends StatefulWidget {
   const JsaPage({super.key});
@@ -75,6 +76,7 @@ class _JsaPageState extends State<JsaPage> {
       setState(() {
         result = generatedResult;
       });
+      await JsaStorageService.saveReport(generatedResult);
     } catch (error) {
       if (!mounted) return;
 

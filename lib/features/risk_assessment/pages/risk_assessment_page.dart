@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../models/risk_assessment_result.dart';
 import '../services/risk_assessment_service.dart';
+import '../services/risk_assessment_pdf_service.dart';
 import '../widgets/risk_assessment_card.dart';
+import '../storage/risk_assessment_storage_service.dart';
 
 class RiskAssessmentPage extends StatefulWidget {
   const RiskAssessmentPage({super.key});
@@ -115,6 +117,8 @@ class _RiskAssessmentPageState extends State<RiskAssessmentPage> {
       setState(() {
         assessment = result;
       });
+
+      await RiskAssessmentStorageService.saveReport(result);
     } catch (error) {
       if (!mounted) return;
 
@@ -172,6 +176,19 @@ class _RiskAssessmentPageState extends State<RiskAssessmentPage> {
                 ),
               ),
               if (result != null) ...[
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      await RiskAssessmentPdfService.generateReport(
+                        result: result,
+                      );
+                    },
+                    icon: const Icon(Icons.picture_as_pdf),
+                    label: const Text('Generate PDF'),
+                  ),
+                ),
                 const SizedBox(height: 24),
                 const Text(
                   'AI Risk Assessment Result',

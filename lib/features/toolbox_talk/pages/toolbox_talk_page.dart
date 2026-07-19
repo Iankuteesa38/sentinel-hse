@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/toolbox_talk_result.dart';
 import '../services/toolbox_talk_service.dart';
 import '../services/toolbox_talk_pdf_service.dart';
+import '../storage/toolbox_talk_storage_service.dart';
 
 class ToolboxTalkPage extends StatefulWidget {
   const ToolboxTalkPage({super.key});
@@ -43,6 +44,7 @@ class _ToolboxTalkPageState extends State<ToolboxTalkPage> {
       setState(() {
         _result = result;
       });
+      await ToolboxTalkStorageService.saveReport(result);
     } catch (error) {
       if (!mounted) return;
 

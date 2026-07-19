@@ -151,6 +151,66 @@ class StorageService {
   }
 
   static const String _inspectionRecordsKey = 'inspection_records';
+  static const String _hazardRecordsKey = 'hazard_records';
+  static Future<void> saveHazardRecord(InspectionRecord record) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final records = await getHazardRecords();
+    records.insert(0, record);
+
+    final encodedRecords = records
+        .map((item) => jsonEncode(item.toJson()))
+        .toList();
+
+    await prefs.setStringList(_hazardRecordsKey, encodedRecords);
+  }
+
+  static Future<List<InspectionRecord>> getHazardRecords() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final encodedRecords = prefs.getStringList(_hazardRecordsKey) ?? [];
+
+    return encodedRecords.map((item) {
+      final decoded = jsonDecode(item) as Map<String, dynamic>;
+
+      return InspectionRecord.fromJson(decoded);
+    }).toList();
+  }
+
+  static Future<void> migrateLegacyHazardRecords() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final inspectionRecords = await getInspectionRecords();
+    final hazardRecords = await getHazardRecords();
+
+    final legacyHazards = inspectionRecords
+        .where((record) => record.inspectionId.startsWith('HSE-'))
+        .toList();
+
+    for (final record in legacyHazards) {
+      final alreadyExists = hazardRecords.any(
+        (item) => item.inspectionId == record.inspectionId,
+      );
+
+      if (!alreadyExists) {
+        hazardRecords.add(record);
+      }
+    }
+
+    inspectionRecords.removeWhere(
+      (record) => record.inspectionId.startsWith('HSE-'),
+    );
+
+    await prefs.setStringList(
+      _hazardRecordsKey,
+      hazardRecords.map((item) => jsonEncode(item.toJson())).toList(),
+    );
+
+    await prefs.setStringList(
+      _inspectionRecordsKey,
+      inspectionRecords.map((item) => jsonEncode(item.toJson())).toList(),
+    );
+  }
 
   static Future<void> saveInspectionRecord(InspectionRecord record) async {
     final prefs = await SharedPreferences.getInstance();

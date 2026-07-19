@@ -6,6 +6,7 @@ class ToolboxTalkResult {
   final List<String> requiredPpe;
   final List<String> discussionQuestions;
   final String supervisorMessage;
+  final DateTime createdAt;
 
   const ToolboxTalkResult({
     required this.topic,
@@ -15,6 +16,7 @@ class ToolboxTalkResult {
     required this.requiredPpe,
     required this.discussionQuestions,
     required this.supervisorMessage,
+    required this.createdAt,
   });
 
   factory ToolboxTalkResult.fromJson(Map<String, dynamic> json) {
@@ -30,6 +32,9 @@ class ToolboxTalkResult {
         json['discussionQuestions'] ?? const [],
       ),
       supervisorMessage: json['supervisorMessage']?.toString() ?? '',
+      createdAt:
+          DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+          DateTime.now(),
     );
   }
 }

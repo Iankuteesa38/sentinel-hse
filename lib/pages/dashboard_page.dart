@@ -11,10 +11,10 @@ import 'incident_history_page.dart';
 import 'ai_hazard_scanner_page.dart';
 import '../services/storage_service.dart';
 import 'inspection_history_page.dart';
-import 'pdf_reports_page.dart';
 import '../features/risk_assessment/pages/risk_assessment_page.dart';
 import '../features/jsa/pages/jsa_page.dart';
 import '../features/toolbox_talk/pages/toolbox_talk_page.dart';
+import '../features/reports_center/pages/reports_center_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -975,14 +975,14 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                   moduleCard(
                     context,
-                    'PDF Reports',
-                    Icons.picture_as_pdf,
+                    'Reports',
+                    Icons.folder_copy_outlined,
                     Colors.red,
                     () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const PDFReportsPage(),
+                          builder: (context) => const ReportsCenterPage(),
                         ),
                       );
                     },

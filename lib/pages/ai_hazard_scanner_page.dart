@@ -136,7 +136,7 @@ Open
         riskLevel: extractRiskLevel(analysis),
       );
 
-      await StorageService.saveInspectionRecord(record);
+      await StorageService.saveHazardRecord(record);
       await StorageService.saveHazard(result);
     }
   }
