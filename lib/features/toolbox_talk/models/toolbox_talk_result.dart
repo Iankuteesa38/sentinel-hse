@@ -7,6 +7,7 @@ class ToolboxTalkResult {
   final List<String> discussionQuestions;
   final String supervisorMessage;
   final DateTime createdAt;
+  final String evidencePhotoPath;
 
   const ToolboxTalkResult({
     required this.topic,
@@ -17,6 +18,7 @@ class ToolboxTalkResult {
     required this.discussionQuestions,
     required this.supervisorMessage,
     required this.createdAt,
+    this.evidencePhotoPath = '',
   });
 
   factory ToolboxTalkResult.fromJson(Map<String, dynamic> json) {
@@ -35,6 +37,7 @@ class ToolboxTalkResult {
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
           DateTime.now(),
+      evidencePhotoPath: json['evidencePhotoPath']?.toString() ?? '',
     );
   }
 }

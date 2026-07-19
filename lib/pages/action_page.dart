@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/storage_service.dart';
 
 class ActionPage extends StatefulWidget {
@@ -15,7 +18,8 @@ class _ActionPageState extends State<ActionPage> {
   final hazardController = TextEditingController();
   final actionController = TextEditingController();
   final responsibleController = TextEditingController();
-
+  final ImagePicker _picker = ImagePicker();
+  File? evidenceImage;
   String priority = "Medium";
   String status = "Open";
   DateTime? dueDate;
@@ -28,11 +32,21 @@ class _ActionPageState extends State<ActionPage> {
     }
   }
 
+  Future<void> pickEvidenceImage(ImageSource source) async {
+    final XFile? image = await _picker.pickImage(source: source);
+
+    if (image != null) {
+      setState(() {
+        evidenceImage = File(image.path);
+      });
+    }
+  }
+
   Future<void> selectDueDate() async {
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: dueDate ?? DateTime.now(),
-      firstDate: DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 30)),
       lastDate: DateTime.now().add(const Duration(days: 3650)),
     );
 
@@ -94,7 +108,46 @@ class _ActionPageState extends State<ActionPage> {
           ),
           TextField(controller: responsibleController),
           const SizedBox(height: 20),
+          const Text(
+            "Corrective Action Evidence",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
 
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => pickEvidenceImage(ImageSource.camera),
+                  icon: const Icon(Icons.camera_alt),
+                  label: const Text("Take Photo"),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => pickEvidenceImage(ImageSource.gallery),
+                  icon: const Icon(Icons.photo_library),
+                  label: const Text("Gallery"),
+                ),
+              ),
+            ],
+          ),
+
+          if (evidenceImage != null) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(
+                evidenceImage!,
+                height: 220,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 20),
           const Text("Due Date", style: TextStyle(fontWeight: FontWeight.bold)),
 
           const SizedBox(height: 8),
@@ -152,16 +205,19 @@ class _ActionPageState extends State<ActionPage> {
               if (hazardController.text.trim().isEmpty ||
                   actionController.text.trim().isEmpty ||
                   responsibleController.text.trim().isEmpty ||
-                  dueDate == null) {
+                  dueDate == null ||
+                  evidenceImage == null) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text(
-                      'Please complete the hazard, action, responsible person and due date.',
+                      'Please complete all fields, select a due date and add an evidence photo.',
                     ),
                   ),
                 );
                 return;
               }
+              final evidencePhotoPath =
+                  await StorageService.saveImagePermanently(evidenceImage!);
               String actionData =
                   '''
 Hazard: ${hazardController.text}
@@ -170,6 +226,7 @@ Responsible: ${responsibleController.text}
 Priority: $priority
 Status: $status
 Due Date: ${dueDate?.toString().split(' ')[0] ?? "Not Set"}
+Evidence Photo: $evidencePhotoPath
 Date: ${DateTime.now()}
 ''';
 

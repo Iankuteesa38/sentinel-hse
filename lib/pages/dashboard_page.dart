@@ -275,11 +275,13 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  void openActionHistory(BuildContext context) {
-    Navigator.push(
+  Future<void> openActionHistory(BuildContext context) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const ActionHistoryPage()),
     );
+
+    await loadDashboardData();
   }
 
   void openAIAssistant(BuildContext context) {

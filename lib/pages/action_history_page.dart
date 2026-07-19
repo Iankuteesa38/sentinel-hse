@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
+import 'action_details_page.dart';
 
 class ActionHistoryPage extends StatefulWidget {
   const ActionHistoryPage({super.key});
@@ -170,6 +171,15 @@ class _ActionHistoryPageState extends State<ActionHistoryPage> {
                           leading: const Icon(Icons.assignment_turned_in),
                           title: Text('CAPA ${index + 1}'),
                           subtitle: Text(action),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    ActionDetailsPage(action: action),
+                              ),
+                            );
+                          },
                           trailing: IconButton(
                             icon: const Icon(Icons.check),
                             onPressed: () => closeAction(index),

@@ -1,3 +1,7 @@
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+
+import '../../../services/storage_service.dart';
 import 'package:flutter/material.dart';
 
 import '../models/toolbox_talk_result.dart';
@@ -15,10 +19,21 @@ class ToolboxTalkPage extends StatefulWidget {
 class _ToolboxTalkPageState extends State<ToolboxTalkPage> {
   final TextEditingController _topicController = TextEditingController();
   final ToolboxTalkService _service = const ToolboxTalkService();
+  final ImagePicker _picker = ImagePicker();
+  File? _evidenceImage;
 
   ToolboxTalkResult? _result;
   bool _isLoading = false;
   String? _errorMessage;
+  Future<void> _pickEvidenceImage(ImageSource source) async {
+    final XFile? image = await _picker.pickImage(source: source);
+
+    if (image != null) {
+      setState(() {
+        _evidenceImage = File(image.path);
+      });
+    }
+  }
 
   Future<void> _generateToolboxTalk() async {
     final topic = _topicController.text.trim();
@@ -41,10 +56,33 @@ class _ToolboxTalkPageState extends State<ToolboxTalkPage> {
 
       if (!mounted) return;
 
+      String evidencePhotoPath = '';
+
+      if (_evidenceImage != null) {
+        evidencePhotoPath = await StorageService.saveImagePermanently(
+          _evidenceImage!,
+        );
+      }
+
+      if (!mounted) return;
+
+      final resultWithEvidence = ToolboxTalkResult(
+        topic: result.topic,
+        objective: result.objective,
+        keyHazards: result.keyHazards,
+        safetyPrecautions: result.safetyPrecautions,
+        requiredPpe: result.requiredPpe,
+        discussionQuestions: result.discussionQuestions,
+        supervisorMessage: result.supervisorMessage,
+        createdAt: result.createdAt,
+        evidencePhotoPath: evidencePhotoPath,
+      );
+
       setState(() {
-        _result = result;
+        _result = resultWithEvidence;
       });
-      await ToolboxTalkStorageService.saveReport(result);
+
+      await ToolboxTalkStorageService.saveReport(resultWithEvidence);
     } catch (error) {
       if (!mounted) return;
 
@@ -124,6 +162,46 @@ class _ToolboxTalkPageState extends State<ToolboxTalkPage> {
                 border: OutlineInputBorder(),
               ),
             ),
+            const Text(
+              'Toolbox Talk Evidence Photo',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _pickEvidenceImage(ImageSource.camera),
+                    icon: const Icon(Icons.camera_alt),
+                    label: const Text('Camera'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _pickEvidenceImage(ImageSource.gallery),
+                    icon: const Icon(Icons.photo_library),
+                    label: const Text('Gallery'),
+                  ),
+                ),
+              ],
+            ),
+
+            if (_evidenceImage != null) ...[
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.file(
+                  _evidenceImage!,
+                  height: 220,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 16),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: _isLoading ? null : _generateToolboxTalk,

@@ -24,6 +24,7 @@ class ToolboxTalkStorageService {
         'requiredPpe': report.requiredPpe,
         'discussionQuestions': report.discussionQuestions,
         'supervisorMessage': report.supervisorMessage,
+        'evidencePhotoPath': report.evidencePhotoPath,
         'createdAt': DateTime.now().toIso8601String(),
       }),
     );

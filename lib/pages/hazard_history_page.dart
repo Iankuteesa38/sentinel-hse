@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
 import '../services/pdf_service.dart';
+import 'hazard_history_details_page.dart';
 
 class HazardHistoryPage extends StatefulWidget {
   const HazardHistoryPage({super.key});
@@ -73,6 +74,17 @@ class _HazardHistoryPageState extends State<HazardHistoryPage> {
                     leading: const Icon(Icons.warning_amber),
                     title: Text("Hazard ${index + 1}"),
                     subtitle: Text(hazards[index]),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => HazardHistoryDetailsPage(
+                            hazard: hazards[index],
+                            hazardNumber: index + 1,
+                          ),
+                        ),
+                      );
+                    },
                     trailing: PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert),
                       onSelected: (value) async {

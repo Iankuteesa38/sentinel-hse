@@ -1,7 +1,7 @@
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-
+import '../../../services/storage_service.dart';
 import '../models/toolbox_talk_result.dart';
 
 class ToolboxTalkPdfService {
@@ -11,7 +11,13 @@ class ToolboxTalkPdfService {
     required ToolboxTalkResult result,
   }) async {
     final pdf = pw.Document();
+    final evidencePhotoFile = result.evidencePhotoPath.isEmpty
+        ? null
+        : await StorageService.getInspectionImage(result.evidencePhotoPath);
 
+    final pw.MemoryImage? evidencePhoto = evidencePhotoFile == null
+        ? null
+        : pw.MemoryImage(await evidencePhotoFile.readAsBytes());
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
@@ -26,7 +32,15 @@ class ToolboxTalkPdfService {
           _sectionTitle('Topic'),
           pw.Text(result.topic),
           pw.SizedBox(height: 16),
-
+          if (evidencePhoto != null) ...[
+            _sectionTitle('Toolbox Talk Evidence Photo'),
+            pw.Container(
+              height: 220,
+              alignment: pw.Alignment.center,
+              child: pw.Image(evidencePhoto, fit: pw.BoxFit.contain),
+            ),
+            pw.SizedBox(height: 16),
+          ],
           _sectionTitle('Objective'),
           pw.Text(result.objective),
           pw.SizedBox(height: 16),

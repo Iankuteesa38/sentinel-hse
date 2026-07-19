@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/storage_service.dart';
 
 class IncidentReportPage extends StatefulWidget {
@@ -20,12 +22,23 @@ class _IncidentReportPageState extends State<IncidentReportPage> {
   final unsafeActController = TextEditingController();
   final unsafeConditionController = TextEditingController();
   final correctiveActionController = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
+  File? incidentImage;
 
   String incidentType = 'Near Miss';
   String severity = 'Medium';
   String status = 'Open';
 
   String investigationSummary = '';
+  Future<void> pickIncidentImage(ImageSource source) async {
+    final XFile? image = await _picker.pickImage(source: source);
+
+    if (image != null) {
+      setState(() {
+        incidentImage = File(image.path);
+      });
+    }
+  }
 
   void generateInvestigationSummary() {
     final description = descriptionController.text.trim();
@@ -242,7 +255,13 @@ AI Recommendation:
     if (investigationSummary.isEmpty) {
       generateInvestigationSummary();
     }
+    String incidentPhotoPath = 'No photo';
 
+    if (incidentImage != null) {
+      incidentPhotoPath = await StorageService.saveImagePermanently(
+        incidentImage!,
+      );
+    }
     final incidentData =
         '''
 Location: ${locationController.text.trim()}
@@ -257,6 +276,7 @@ Root Cause: ${rootCauseController.text.trim().isEmpty ? 'Pending investigation' 
 Unsafe Act: ${unsafeActController.text.trim().isEmpty ? 'None recorded' : unsafeActController.text.trim()}
 Unsafe Condition: ${unsafeConditionController.text.trim().isEmpty ? 'None recorded' : unsafeConditionController.text.trim()}
 Corrective Actions: ${correctiveActionController.text.trim().isEmpty ? 'Pending assignment' : correctiveActionController.text.trim()}
+Photo: $incidentPhotoPath
 Status: $status
 Date: ${DateTime.now()}
 ''';
@@ -516,7 +536,46 @@ Date: ${DateTime.now()}
           ),
 
           const SizedBox(height: 20),
+          const Text(
+            'Incident Evidence Photo',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
 
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => pickIncidentImage(ImageSource.camera),
+                  icon: const Icon(Icons.camera_alt),
+                  label: const Text('Camera'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => pickIncidentImage(ImageSource.gallery),
+                  icon: const Icon(Icons.photo_library),
+                  label: const Text('Gallery'),
+                ),
+              ),
+            ],
+          ),
+
+          if (incidentImage != null) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(
+                incidentImage!,
+                height: 220,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 20),
           const Text('Status', style: TextStyle(fontWeight: FontWeight.bold)),
           DropdownButtonFormField<String>(
             initialValue: status,
