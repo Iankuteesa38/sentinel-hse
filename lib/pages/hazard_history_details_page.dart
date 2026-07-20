@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../services/storage_service.dart';
 
 class HazardHistoryDetailsPage extends StatelessWidget {
   final String hazard;
@@ -17,11 +18,14 @@ class HazardHistoryDetailsPage extends StatelessWidget {
     'Time',
     'Inspector',
     'Location',
+    'Category',
+    'Description',
     'Hazard Category',
     'Hazards Found',
     'Likelihood',
     'Severity',
     'Risk Level',
+    'Photos',
     'Photo',
     'Immediate Actions',
     'Corrective Actions',
@@ -30,6 +34,7 @@ class HazardHistoryDetailsPage extends StatelessWidget {
     'Required Permits',
     'Applicable Standards',
     'AI Confidence Score',
+    'Reported By',
     'Status',
   ];
 
@@ -48,12 +53,21 @@ class HazardHistoryDetailsPage extends StatelessWidget {
     final riskLevel = _lastValue(report['Risk Level']);
     final confidence = _lastValue(report['AI Confidence Score']);
     final status = _lastValue(report['Status']) ?? 'Open';
-    final photoPath = _lastValue(report['Photo']);
+    final photosText =
+        _lastValue(report['Photos']) ?? _lastValue(report['Photo']);
 
-    final photoFile =
-        photoPath != null && photoPath.isNotEmpty && photoPath != 'No photo'
-        ? File(photoPath)
-        : null;
+    final photoPaths =
+        photosText == null || photosText.isEmpty || photosText == 'No photo'
+        ? <String>[]
+        : photosText
+              .split('|')
+              .map((path) => path.trim())
+              .where((path) => path.isNotEmpty)
+              .toList();
+
+    final photoFilesFuture = Future.wait(
+      photoPaths.map((path) => StorageService.getInspectionImage(path)),
+    );
     final hazardsFound = _items(report['Hazards Found']);
     final immediateActions = _items(report['Immediate Actions']);
     final correctiveActions = _items(report['Corrective Actions']);
@@ -137,21 +151,70 @@ class HazardHistoryDetailsPage extends StatelessWidget {
             ),
           ),
 
-          if (hazardsFound.isNotEmpty)
-            if (photoFile != null && photoFile.existsSync())
-              _sectionCard(
-                title: 'Hazard Photo',
+          FutureBuilder<List<File?>>(
+            future: photoFilesFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final photoFiles =
+                  snapshot.data?.whereType<File>().toList() ?? [];
+
+              if (photoFiles.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              return _sectionCard(
+                title: 'Hazard Photos',
                 icon: Icons.photo_outlined,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.file(
-                    photoFile,
-                    height: 220,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
+                child: SizedBox(
+                  height: 230,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: photoFiles.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      return Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.file(
+                              photoFiles[index],
+                              height: 220,
+                              width: 280,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${index + 1}/${photoFiles.length}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
-              ),
+              );
+            },
+          ),
           _sectionCard(
             title: 'Hazards Identified',
             icon: Icons.report_problem_outlined,

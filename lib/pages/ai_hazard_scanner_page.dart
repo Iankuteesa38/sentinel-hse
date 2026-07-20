@@ -18,7 +18,8 @@ class AIHazardScannerPage extends StatefulWidget {
 
 class _AIHazardScannerPageState extends State<AIHazardScannerPage> {
   String inspector = "Ian Kuteesa";
-  String location = "ADNOC Buhasa";
+  String location = "Not specified";
+  final TextEditingController locationController = TextEditingController();
   String result = "No image analyzed yet.";
   String rawAnalysis = "";
   HazardAnalysisResult? structuredResult;
@@ -72,6 +73,18 @@ class _AIHazardScannerPageState extends State<AIHazardScannerPage> {
       });
       return;
     }
+
+    final enteredLocation = locationController.text.trim();
+
+    if (enteredLocation.isEmpty) {
+      setState(() {
+        result = 'Please enter the hazard location first.';
+      });
+      return;
+    }
+
+    location = enteredLocation;
+    FocusScope.of(context).unfocus();
 
     setState(() {
       result = 'Analyzing image...';
@@ -165,6 +178,27 @@ Open
         child: SingleChildScrollView(
           child: Column(
             children: [
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Hazard Location',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              TextField(
+                controller: locationController,
+                decoration: const InputDecoration(
+                  hintText: 'Enter hazard location',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.location_on_outlined),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
               selectedImage == null
                   ? const Icon(Icons.camera_alt, size: 90)
                   : Image.file(selectedImage!, height: 220, fit: BoxFit.cover),
@@ -203,7 +237,7 @@ Open
                           inspector: inspector,
                           location: location,
                           analysis: rawAnalysis,
-                          imageFile: selectedImage!,
+                          imageFiles: [selectedImage!],
                         );
                       },
                 icon: const Icon(Icons.picture_as_pdf),

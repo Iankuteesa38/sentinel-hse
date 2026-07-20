@@ -20,7 +20,7 @@ class _ToolboxTalkPageState extends State<ToolboxTalkPage> {
   final TextEditingController _topicController = TextEditingController();
   final ToolboxTalkService _service = const ToolboxTalkService();
   final ImagePicker _picker = ImagePicker();
-  File? _evidenceImage;
+  final List<File> _evidenceImages = [];
 
   ToolboxTalkResult? _result;
   bool _isLoading = false;
@@ -30,7 +30,7 @@ class _ToolboxTalkPageState extends State<ToolboxTalkPage> {
 
     if (image != null) {
       setState(() {
-        _evidenceImage = File(image.path);
+        _evidenceImages.add(File(image.path));
       });
     }
   }
@@ -56,13 +56,15 @@ class _ToolboxTalkPageState extends State<ToolboxTalkPage> {
 
       if (!mounted) return;
 
-      String evidencePhotoPath = '';
+      final List<String> evidencePhotoPaths = [];
 
-      if (_evidenceImage != null) {
-        evidencePhotoPath = await StorageService.saveImagePermanently(
-          _evidenceImage!,
-        );
+      for (final image in _evidenceImages) {
+        final savedPath = await StorageService.saveImagePermanently(image);
+
+        evidencePhotoPaths.add(savedPath);
       }
+
+      final evidencePhotoPath = evidencePhotoPaths.join(' | ');
 
       if (!mounted) return;
 
@@ -188,15 +190,48 @@ class _ToolboxTalkPageState extends State<ToolboxTalkPage> {
               ],
             ),
 
-            if (_evidenceImage != null) ...[
+            if (_evidenceImages.isNotEmpty) ...[
               const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(
-                  _evidenceImage!,
-                  height: 220,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
+              SizedBox(
+                height: 230,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _evidenceImages.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 10),
+                  itemBuilder: (context, index) {
+                    return Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.file(
+                            _evidenceImages[index],
+                            height: 220,
+                            width: 280,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        Positioned(
+                          top: 6,
+                          right: 6,
+                          child: CircleAvatar(
+                            backgroundColor: Colors.black54,
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _evidenceImages.removeAt(index);
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],

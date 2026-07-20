@@ -4,6 +4,8 @@ import 'package:image_picker/image_picker.dart';
 import '../services/storage_service.dart';
 import '../models/inspection_record.dart';
 
+enum InspectionStatus { compliant, nonCompliant, notApplicable }
+
 class InspectionPage extends StatefulWidget {
   const InspectionPage({super.key});
 
@@ -16,32 +18,95 @@ class _InspectionPageState extends State<InspectionPage> {
   final TextEditingController projectController = TextEditingController();
   final TextEditingController locationController = TextEditingController();
   final TextEditingController inspectorController = TextEditingController();
-  File? _inspectionImage;
-  bool housekeeping = false;
-  bool ppe = false;
-  bool fire = false;
-  bool emergencyExit = false;
-  bool workingAtHeight = false;
-  bool scaffolding = false;
-  bool accessEgress = false;
-  bool barricadesSignage = false;
-  bool excavationSafety = false;
-  bool liftingOperations = false;
-  bool electricalSafety = false;
-  bool hotWork = false;
-  bool toolsEquipment = false;
-  bool firstAidFacilities = false;
-  bool chemicalStorage = false;
-  bool environmentalControls = false;
-  bool vehicleMovement = false;
-  bool welfareFacilities = false;
+  final List<File> _inspectionImages = [];
+  InspectionStatus housekeeping = InspectionStatus.notApplicable;
+  InspectionStatus ppe = InspectionStatus.notApplicable;
+  InspectionStatus fire = InspectionStatus.notApplicable;
+  InspectionStatus emergencyExit = InspectionStatus.notApplicable;
+  InspectionStatus workingAtHeight = InspectionStatus.notApplicable;
+  InspectionStatus scaffolding = InspectionStatus.notApplicable;
+  InspectionStatus accessEgress = InspectionStatus.notApplicable;
+  InspectionStatus barricadesSignage = InspectionStatus.notApplicable;
+  InspectionStatus excavationSafety = InspectionStatus.notApplicable;
+  InspectionStatus liftingOperations = InspectionStatus.notApplicable;
+  InspectionStatus electricalSafety = InspectionStatus.notApplicable;
+  InspectionStatus hotWork = InspectionStatus.notApplicable;
+  InspectionStatus toolsEquipment = InspectionStatus.notApplicable;
+  InspectionStatus firstAidFacilities = InspectionStatus.notApplicable;
+  InspectionStatus chemicalStorage = InspectionStatus.notApplicable;
+  InspectionStatus environmentalControls = InspectionStatus.notApplicable;
+  InspectionStatus vehicleMovement = InspectionStatus.notApplicable;
+  InspectionStatus welfareFacilities = InspectionStatus.notApplicable;
   Future<void> _pickImage(ImageSource source) async {
     final XFile? image = await _picker.pickImage(source: source);
 
     if (image != null) {
       setState(() {
-        _inspectionImage = File(image.path);
+        _inspectionImages.add(File(image.path));
       });
+    }
+  }
+
+  Widget _buildInspectionStatusSelector({
+    required String title,
+    required InspectionStatus value,
+    required ValueChanged<InspectionStatus> onChanged,
+  }) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('Compliant'),
+                  selected: value == InspectionStatus.compliant,
+                  onSelected: (_) {
+                    onChanged(InspectionStatus.compliant);
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('Non-Compliant'),
+                  selected: value == InspectionStatus.nonCompliant,
+                  onSelected: (_) {
+                    onChanged(InspectionStatus.nonCompliant);
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('Not Applicable'),
+                  selected: value == InspectionStatus.notApplicable,
+                  onSelected: (_) {
+                    onChanged(InspectionStatus.notApplicable);
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _inspectionStatusText(InspectionStatus status) {
+    switch (status) {
+      case InspectionStatus.compliant:
+        return 'Compliant';
+
+      case InspectionStatus.nonCompliant:
+        return 'Non-Compliant';
+
+      case InspectionStatus.notApplicable:
+        return 'Not Applicable';
     }
   }
 
@@ -63,25 +128,25 @@ Project: $project
 Location: $location
 Inspector: $inspector
 Date: ${DateTime.now()}
-Housekeeping: $housekeeping
-PPE Compliance: $ppe
-Fire Extinguishers: $fire
-Emergency Exit: $emergencyExit
-Working at Height: $workingAtHeight
-Scaffolding: $scaffolding
-Access and Egress: $accessEgress
-Barricades and Signage: $barricadesSignage
-Excavation Safety: $excavationSafety
-Lifting Operations: $liftingOperations
-Electrical Safety: $electricalSafety
-Hot Work: $hotWork
-Tools and Equipment: $toolsEquipment
-First Aid Facilities: $firstAidFacilities
-Chemical Storage: $chemicalStorage
-Environmental Controls: $environmentalControls
-Vehicle Movement: $vehicleMovement
-Welfare Facilities: $welfareFacilities
-Photo: ${_inspectionImage?.path ?? "No photo"}
+Housekeeping: ${_inspectionStatusText(housekeeping)}
+PPE Compliance: ${_inspectionStatusText(ppe)}
+Fire Extinguishers: ${_inspectionStatusText(fire)}
+Emergency Exit: ${_inspectionStatusText(emergencyExit)}
+Working at Height: ${_inspectionStatusText(workingAtHeight)}
+Scaffolding: ${_inspectionStatusText(scaffolding)}
+Access and Egress: ${_inspectionStatusText(accessEgress)}
+Barricades and Signage: ${_inspectionStatusText(barricadesSignage)}
+Excavation Safety: ${_inspectionStatusText(excavationSafety)}
+Lifting Operations: ${_inspectionStatusText(liftingOperations)}
+Electrical Safety: ${_inspectionStatusText(electricalSafety)}
+Hot Work: ${_inspectionStatusText(hotWork)}
+Tools and Equipment: ${_inspectionStatusText(toolsEquipment)}
+First Aid Facilities: ${_inspectionStatusText(firstAidFacilities)}
+Chemical Storage: ${_inspectionStatusText(chemicalStorage)}
+Environmental Controls: ${_inspectionStatusText(environmentalControls)}
+Vehicle Movement: ${_inspectionStatusText(vehicleMovement)}
+Welfare Facilities: ${_inspectionStatusText(welfareFacilities)}
+Photos: ${_inspectionImages.isEmpty ? "No photo" : _inspectionImages.map((image) => image.path).join(" | ")}
 ''';
   }
 
@@ -90,6 +155,7 @@ Photo: ${_inspectionImage?.path ?? "No photo"}
     return Scaffold(
       appBar: AppBar(title: const Text("Daily Site Inspection")),
       body: ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.all(16),
         children: [
           const Text("Project", style: TextStyle(fontWeight: FontWeight.bold)),
@@ -112,141 +178,140 @@ Photo: ${_inspectionImage?.path ?? "No photo"}
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
 
-          CheckboxListTile(
-            title: const Text("Housekeeping"),
+          _buildInspectionStatusSelector(
+            title: 'Housekeeping',
             value: housekeeping,
             onChanged: (value) {
               setState(() {
-                housekeeping = value ?? false;
+                housekeeping = value;
               });
             },
           ),
 
-          CheckboxListTile(
-            title: const Text("PPE Compliance"),
+          _buildInspectionStatusSelector(
+            title: 'PPE Compliance',
             value: ppe,
             onChanged: (value) {
               setState(() {
-                ppe = value ?? false;
+                ppe = value;
               });
             },
           ),
 
-          CheckboxListTile(
-            title: const Text("Fire Extinguishers"),
+          _buildInspectionStatusSelector(
+            title: 'Fire Extinguishers',
             value: fire,
             onChanged: (value) {
               setState(() {
-                fire = value ?? false;
+                fire = value;
               });
             },
           ),
 
-          CheckboxListTile(
-            title: const Text("Emergency Exit"),
+          _buildInspectionStatusSelector(
+            title: 'Emergency Exit',
             value: emergencyExit,
             onChanged: (value) {
               setState(() {
-                emergencyExit = value ?? false;
+                emergencyExit = value;
               });
             },
           ),
 
-          CheckboxListTile(
-            title: const Text("Working at Height"),
+          _buildInspectionStatusSelector(
+            title: 'Working at Height',
             value: workingAtHeight,
             onChanged: (value) {
               setState(() {
-                workingAtHeight = value ?? false;
+                workingAtHeight = value;
               });
             },
           ),
 
-          CheckboxListTile(
-            title: const Text("Scaffolding"),
+          _buildInspectionStatusSelector(
+            title: 'Scaffolding',
             value: scaffolding,
             onChanged: (value) {
               setState(() {
-                scaffolding = value ?? false;
+                scaffolding = value;
               });
             },
           ),
-          CheckboxListTile(
-            title: const Text("Access and Egress"),
+          _buildInspectionStatusSelector(
+            title: 'Access and Egress',
             value: accessEgress,
             onChanged: (value) {
               setState(() {
-                accessEgress = value ?? false;
+                accessEgress = value;
               });
             },
           ),
 
-          CheckboxListTile(
-            title: const Text("Barricades and Signage"),
+          _buildInspectionStatusSelector(
+            title: 'Barricades and Signage',
             value: barricadesSignage,
             onChanged: (value) {
               setState(() {
-                barricadesSignage = value ?? false;
+                barricadesSignage = value;
               });
             },
           ),
 
-          CheckboxListTile(
-            title: const Text("Excavation Safety"),
+          _buildInspectionStatusSelector(
+            title: 'Excavation Safety',
             value: excavationSafety,
             onChanged: (value) {
               setState(() {
-                excavationSafety = value ?? false;
+                excavationSafety = value;
               });
             },
           ),
 
-          CheckboxListTile(
-            title: const Text("Lifting Operations"),
+          _buildInspectionStatusSelector(
+            title: 'Lifting Operations',
             value: liftingOperations,
             onChanged: (value) {
               setState(() {
-                liftingOperations = value ?? false;
+                liftingOperations = value;
               });
             },
           ),
-          const SizedBox(height: 20),
-          CheckboxListTile(
-            title: const Text("Electrical Safety"),
+          _buildInspectionStatusSelector(
+            title: 'Electrical Safety',
             value: electricalSafety,
             onChanged: (value) {
               setState(() {
-                electricalSafety = value ?? false;
+                electricalSafety = value;
               });
             },
           ),
 
-          CheckboxListTile(
-            title: const Text("Hot Work"),
+          _buildInspectionStatusSelector(
+            title: 'Hot Work',
             value: hotWork,
             onChanged: (value) {
               setState(() {
-                hotWork = value ?? false;
+                hotWork = value;
               });
             },
           ),
 
-          CheckboxListTile(
-            title: const Text("Tools and Equipment"),
+          _buildInspectionStatusSelector(
+            title: 'Tools and Equipment',
             value: toolsEquipment,
             onChanged: (value) {
               setState(() {
-                toolsEquipment = value ?? false;
+                toolsEquipment = value;
               });
             },
           ),
 
-          CheckboxListTile(
-            title: const Text("First Aid Facilities"),
+          _buildInspectionStatusSelector(
+            title: 'First Aid Facilities',
             value: firstAidFacilities,
             onChanged: (value) {
               setState(() {
-                firstAidFacilities = value ?? false;
+                firstAidFacilities = value;
               });
             },
           ),
@@ -269,73 +334,111 @@ Photo: ${_inspectionImage?.path ?? "No photo"}
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          CheckboxListTile(
-            title: const Text("Chemical Storage"),
+          _buildInspectionStatusSelector(
+            title: 'Chemical Storage',
             value: chemicalStorage,
             onChanged: (value) {
               setState(() {
-                chemicalStorage = value ?? false;
+                chemicalStorage = value;
               });
             },
           ),
 
-          CheckboxListTile(
-            title: const Text("Environmental Controls"),
+          _buildInspectionStatusSelector(
+            title: 'Environmental Controls',
             value: environmentalControls,
             onChanged: (value) {
               setState(() {
-                environmentalControls = value ?? false;
+                environmentalControls = value;
               });
             },
           ),
 
-          CheckboxListTile(
-            title: const Text("Vehicle Movement"),
+          _buildInspectionStatusSelector(
+            title: 'Vehicle Movement',
             value: vehicleMovement,
             onChanged: (value) {
               setState(() {
-                vehicleMovement = value ?? false;
+                vehicleMovement = value;
               });
             },
           ),
 
-          CheckboxListTile(
-            title: const Text("Welfare Facilities"),
+          _buildInspectionStatusSelector(
+            title: 'Welfare Facilities',
             value: welfareFacilities,
             onChanged: (value) {
               setState(() {
-                welfareFacilities = value ?? false;
+                welfareFacilities = value;
               });
             },
           ),
-          if (_inspectionImage != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.file(
-                _inspectionImage!,
-                height: 200,
-                width: double.infinity,
-                fit: BoxFit.cover,
+          if (_inspectionImages.isNotEmpty)
+            SizedBox(
+              height: 210,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _inspectionImages.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  return Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          _inspectionImages[index],
+                          height: 200,
+                          width: 260,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: CircleAvatar(
+                          backgroundColor: Colors.black54,
+                          child: IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () {
+                              setState(() {
+                                _inspectionImages.removeAt(index);
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           const SizedBox(height: 12),
 
           ElevatedButton(
             onPressed: () async {
-              String photoPath = "No photo";
+              final List<String> photoPaths = [];
 
-              if (_inspectionImage != null) {
-                photoPath = await StorageService.saveImagePermanently(
-                  _inspectionImage!,
+              for (final image in _inspectionImages) {
+                final savedPath = await StorageService.saveImagePermanently(
+                  image,
                 );
+
+                photoPaths.add(savedPath);
               }
+
+              final originalPhotoPaths = _inspectionImages.isEmpty
+                  ? 'No photo'
+                  : _inspectionImages.map((image) => image.path).join(' | ');
+
+              final savedPhotoPaths = photoPaths.isEmpty
+                  ? 'No photo'
+                  : photoPaths.join(' | ');
 
               final now = DateTime.now();
 
               final inspectionData = _generateInspectionData().replaceAll(
-                _inspectionImage?.path ?? "No photo",
-                photoPath,
+                originalPhotoPaths,
+                savedPhotoPaths,
               );
 
               await StorageService.saveInspection(inspectionData);
@@ -349,7 +452,7 @@ Photo: ${_inspectionImage?.path ?? "No photo"}
                     ? 'Not specified'
                     : locationController.text.trim(),
                 analysis: inspectionData,
-                imagePath: photoPath == 'No photo' ? '' : photoPath,
+                imagePaths: photoPaths,
                 createdAt: now,
                 status: 'Open',
                 riskLevel: 'Not assessed',

@@ -23,7 +23,7 @@ class _IncidentReportPageState extends State<IncidentReportPage> {
   final unsafeConditionController = TextEditingController();
   final correctiveActionController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
-  File? incidentImage;
+  final List<File> incidentImages = [];
 
   String incidentType = 'Near Miss';
   String severity = 'Medium';
@@ -35,7 +35,7 @@ class _IncidentReportPageState extends State<IncidentReportPage> {
 
     if (image != null) {
       setState(() {
-        incidentImage = File(image.path);
+        incidentImages.add(File(image.path));
       });
     }
   }
@@ -255,13 +255,17 @@ AI Recommendation:
     if (investigationSummary.isEmpty) {
       generateInvestigationSummary();
     }
-    String incidentPhotoPath = 'No photo';
+    final List<String> incidentPhotoPaths = [];
 
-    if (incidentImage != null) {
-      incidentPhotoPath = await StorageService.saveImagePermanently(
-        incidentImage!,
-      );
+    for (final image in incidentImages) {
+      final savedPath = await StorageService.saveImagePermanently(image);
+
+      incidentPhotoPaths.add(savedPath);
     }
+
+    final incidentPhotosText = incidentPhotoPaths.isEmpty
+        ? 'No photo'
+        : incidentPhotoPaths.join(' | ');
     final incidentData =
         '''
 Location: ${locationController.text.trim()}
@@ -276,7 +280,7 @@ Root Cause: ${rootCauseController.text.trim().isEmpty ? 'Pending investigation' 
 Unsafe Act: ${unsafeActController.text.trim().isEmpty ? 'None recorded' : unsafeActController.text.trim()}
 Unsafe Condition: ${unsafeConditionController.text.trim().isEmpty ? 'None recorded' : unsafeConditionController.text.trim()}
 Corrective Actions: ${correctiveActionController.text.trim().isEmpty ? 'Pending assignment' : correctiveActionController.text.trim()}
-Photo: $incidentPhotoPath
+Photos: $incidentPhotosText
 Status: $status
 Date: ${DateTime.now()}
 ''';
@@ -330,6 +334,7 @@ Date: ${DateTime.now()}
     return Scaffold(
       appBar: AppBar(title: const Text('AI Incident Investigation')),
       body: ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.all(16),
         children: [
           const Text(
@@ -562,15 +567,44 @@ Date: ${DateTime.now()}
             ],
           ),
 
-          if (incidentImage != null) ...[
+          if (incidentImages.isNotEmpty) ...[
             const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.file(
-                incidentImage!,
-                height: 220,
-                width: double.infinity,
-                fit: BoxFit.cover,
+            SizedBox(
+              height: 230,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: incidentImages.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  return Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          incidentImages[index],
+                          height: 220,
+                          width: 280,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: CircleAvatar(
+                          backgroundColor: Colors.black54,
+                          child: IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () {
+                              setState(() {
+                                incidentImages.removeAt(index);
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ],

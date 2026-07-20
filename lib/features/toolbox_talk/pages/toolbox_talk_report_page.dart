@@ -11,9 +11,15 @@ class ToolboxTalkReportPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final evidencePhotoFuture = report.evidencePhotoPath.isEmpty
-        ? Future<File?>.value(null)
-        : StorageService.getInspectionImage(report.evidencePhotoPath);
+    final evidencePhotoPaths = report.evidencePhotoPath
+        .split('|')
+        .map((path) => path.trim())
+        .where((path) => path.isNotEmpty)
+        .toList();
+
+    final evidencePhotosFuture = Future.wait(
+      evidencePhotoPaths.map((path) => StorageService.getInspectionImage(path)),
+    );
     return Scaffold(
       appBar: AppBar(title: const Text('Toolbox Talk Report')),
       body: SingleChildScrollView(
@@ -28,12 +34,17 @@ class ToolboxTalkReportPage extends StatelessWidget {
             const SizedBox(height: 8),
             Text(report.createdAt.toLocal().toString().split(' ').first),
             const SizedBox(height: 20),
-            FutureBuilder<File?>(
-              future: evidencePhotoFuture,
+            FutureBuilder<List<File?>>(
+              future: evidencePhotosFuture,
               builder: (context, snapshot) {
-                final evidencePhotoFile = snapshot.data;
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-                if (evidencePhotoFile == null) {
+                final evidencePhotoFiles =
+                    snapshot.data?.whereType<File>().toList() ?? [];
+
+                if (evidencePhotoFiles.isEmpty) {
                   return const SizedBox.shrink();
                 }
 
@@ -45,20 +56,56 @@ class ToolboxTalkReportPage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Toolbox Talk Evidence Photo',
+                          'Toolbox Talk Evidence Photos',
                           style: TextStyle(
                             fontSize: 19,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: 12),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            evidencePhotoFile,
-                            height: 220,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
+                        SizedBox(
+                          height: 230,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: evidencePhotoFiles.length,
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(width: 12),
+                            itemBuilder: (context, index) {
+                              return Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.file(
+                                      evidencePhotoFiles[index],
+                                      height: 220,
+                                      width: 280,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 8,
+                                    right: 8,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black54,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        '${index + 1}/${evidencePhotoFiles.length}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
                           ),
                         ),
                       ],

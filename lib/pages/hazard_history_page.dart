@@ -58,6 +58,47 @@ class _HazardHistoryPageState extends State<HazardHistoryPage> {
     });
   }
 
+  Future<void> deleteHazard(int index) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete Hazard'),
+          content: const Text(
+            'Are you sure you want to permanently delete this hazard report?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    final updatedHazards = List<String>.from(hazards);
+    updatedHazards.removeAt(index);
+
+    await StorageService.saveHazards(updatedHazards);
+
+    if (!mounted) return;
+
+    setState(() {
+      hazards = updatedHazards;
+    });
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Hazard report deleted')));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -95,6 +136,8 @@ class _HazardHistoryPageState extends State<HazardHistoryPage> {
                           );
                         } else if (value == 'close') {
                           await closeHazard(index);
+                        } else if (value == 'delete') {
+                          await deleteHazard(index);
                         }
                       },
                       itemBuilder: (context) => const [
@@ -118,12 +161,25 @@ class _HazardHistoryPageState extends State<HazardHistoryPage> {
                             ],
                           ),
                         ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline, color: Colors.red),
+                              SizedBox(width: 10),
+                              Text(
+                                'Delete Hazard',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
-                    ),
-                  ),
-                );
+                    ), // PopupMenuButton
+                  ), // ListTile
+                ); // Card
               },
-            ),
-    );
+            ), // ListView.builder
+    ); // Scaffold
   }
 }

@@ -11,13 +11,25 @@ class ToolboxTalkPdfService {
     required ToolboxTalkResult result,
   }) async {
     final pdf = pw.Document();
-    final evidencePhotoFile = result.evidencePhotoPath.isEmpty
-        ? null
-        : await StorageService.getInspectionImage(result.evidencePhotoPath);
+    final evidencePhotoPaths = result.evidencePhotoPath
+        .split('|')
+        .map((path) => path.trim())
+        .where((path) => path.isNotEmpty)
+        .toList();
 
-    final pw.MemoryImage? evidencePhoto = evidencePhotoFile == null
-        ? null
-        : pw.MemoryImage(await evidencePhotoFile.readAsBytes());
+    final List<pw.MemoryImage> evidencePhotos = [];
+
+    for (final photoPath in evidencePhotoPaths) {
+      final evidencePhotoFile = await StorageService.getInspectionImage(
+        photoPath,
+      );
+
+      if (evidencePhotoFile != null) {
+        evidencePhotos.add(
+          pw.MemoryImage(await evidencePhotoFile.readAsBytes()),
+        );
+      }
+    }
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
@@ -32,14 +44,25 @@ class ToolboxTalkPdfService {
           _sectionTitle('Topic'),
           pw.Text(result.topic),
           pw.SizedBox(height: 16),
-          if (evidencePhoto != null) ...[
-            _sectionTitle('Toolbox Talk Evidence Photo'),
-            pw.Container(
-              height: 220,
-              alignment: pw.Alignment.center,
-              child: pw.Image(evidencePhoto, fit: pw.BoxFit.contain),
-            ),
-            pw.SizedBox(height: 16),
+          if (evidencePhotos.isNotEmpty) ...[
+            _sectionTitle('Toolbox Talk Evidence Photos'),
+
+            for (int index = 0; index < evidencePhotos.length; index++) ...[
+              pw.Text(
+                'Photo ${index + 1} of ${evidencePhotos.length}',
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 6),
+              pw.Container(
+                height: 220,
+                alignment: pw.Alignment.center,
+                child: pw.Image(evidencePhotos[index], fit: pw.BoxFit.contain),
+              ),
+              pw.SizedBox(height: 16),
+            ],
           ],
           _sectionTitle('Objective'),
           pw.Text(result.objective),

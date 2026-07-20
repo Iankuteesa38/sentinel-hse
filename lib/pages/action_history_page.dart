@@ -2,15 +2,54 @@ import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
 import 'action_details_page.dart';
 
-class ActionHistoryPage extends StatefulWidget {
-  const ActionHistoryPage({super.key});
+enum ActionHistoryFilter { all, open, closed, overdue }
 
+class ActionHistoryPage extends StatefulWidget {
+  final ActionHistoryFilter filter;
+
+  const ActionHistoryPage({super.key, this.filter = ActionHistoryFilter.all});
   @override
   State<ActionHistoryPage> createState() => _ActionHistoryPageState();
 }
 
 class _ActionHistoryPageState extends State<ActionHistoryPage> {
   List<String> actions = [];
+  List<String> get filteredActions {
+    final today = DateUtils.dateOnly(DateTime.now());
+
+    return actions.where((action) {
+      final text = action.toLowerCase();
+
+      final isClosed =
+          text.contains('status: closed') || text.contains('status: completed');
+
+      switch (widget.filter) {
+        case ActionHistoryFilter.open:
+          return !isClosed;
+
+        case ActionHistoryFilter.closed:
+          return isClosed;
+
+        case ActionHistoryFilter.overdue:
+          if (isClosed || !action.contains('Due Date:')) {
+            return false;
+          }
+
+          final dueDateText = action
+              .split('Due Date:')[1]
+              .split('\n')[0]
+              .trim();
+
+          final dueDate = DateTime.tryParse(dueDateText);
+
+          return dueDate != null && DateUtils.dateOnly(dueDate).isBefore(today);
+
+        case ActionHistoryFilter.all:
+          return true;
+      }
+    }).toList();
+  }
+
   int get openCapaCount {
     return actions.where((action) {
       final text = action.toLowerCase();
@@ -161,9 +200,9 @@ class _ActionHistoryPageState extends State<ActionHistoryPage> {
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    itemCount: actions.length,
+                    itemCount: filteredActions.length,
                     itemBuilder: (context, index) {
-                      final action = actions[index];
+                      final action = filteredActions[index];
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
@@ -182,7 +221,8 @@ class _ActionHistoryPageState extends State<ActionHistoryPage> {
                           },
                           trailing: IconButton(
                             icon: const Icon(Icons.check),
-                            onPressed: () => closeAction(index),
+                            onPressed: () =>
+                                closeAction(actions.indexOf(action)),
                           ),
                         ),
                       );

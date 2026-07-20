@@ -1,10 +1,10 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'storage_service.dart';
 
 class PdfService {
   static Future<void> generateHazardReport({
@@ -12,12 +12,16 @@ class PdfService {
     required String inspector,
     required String location,
     required String analysis,
-    required File imageFile,
+    required List<File> imageFiles,
   }) async {
     final pdf = pw.Document();
 
-    final Uint8List imageBytes = await imageFile.readAsBytes();
-    final pw.MemoryImage inspectionImage = pw.MemoryImage(imageBytes);
+    final List<pw.MemoryImage> inspectionImages = [];
+
+    for (final imageFile in imageFiles) {
+      final imageBytes = await imageFile.readAsBytes();
+      inspectionImages.add(pw.MemoryImage(imageBytes));
+    }
 
     final String formattedDate = DateFormat(
       'dd MMMM yyyy',
@@ -92,17 +96,34 @@ class PdfService {
             pw.SizedBox(height: 24),
 
             pw.Text(
-              'Inspection Photo',
+              'Inspection Photos',
               style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
             ),
             pw.SizedBox(height: 10),
 
-            pw.Center(
-              child: pw.Container(
-                height: 300,
-                child: pw.Image(inspectionImage, fit: pw.BoxFit.contain),
-              ),
-            ),
+            if (inspectionImages.isEmpty)
+              pw.Text('No inspection photos attached.')
+            else
+              for (int index = 0; index < inspectionImages.length; index++) ...[
+                pw.Text(
+                  'Photo ${index + 1} of ${inspectionImages.length}',
+                  style: pw.TextStyle(
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+                pw.Center(
+                  child: pw.Container(
+                    height: 300,
+                    child: pw.Image(
+                      inspectionImages[index],
+                      fit: pw.BoxFit.contain,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 18),
+              ],
 
             pw.SizedBox(height: 30),
 
@@ -135,6 +156,33 @@ class PdfService {
     required String hazardData,
   }) async {
     final pdf = pw.Document();
+
+    final photoLine = hazardData.split('\n').firstWhere((line) {
+      final trimmedLine = line.trim();
+
+      return trimmedLine.startsWith('Photos:') ||
+          trimmedLine.startsWith('Photo:');
+    }, orElse: () => '');
+
+    final photoText = photoLine.contains(':')
+        ? photoLine.substring(photoLine.indexOf(':') + 1).trim()
+        : '';
+
+    final photoPaths = photoText
+        .split('|')
+        .map((path) => path.trim())
+        .where((path) => path.isNotEmpty && path.toLowerCase() != 'no photo')
+        .toList();
+
+    final List<pw.MemoryImage> hazardPhotos = [];
+
+    for (final photoPath in photoPaths) {
+      final recoveredPhoto = await StorageService.getInspectionImage(photoPath);
+
+      if (recoveredPhoto != null) {
+        hazardPhotos.add(pw.MemoryImage(await recoveredPhoto.readAsBytes()));
+      }
+    }
 
     final formattedDate = DateFormat('dd MMMM yyyy').format(DateTime.now());
 
@@ -196,6 +244,42 @@ class PdfService {
                 style: const pw.TextStyle(fontSize: 11, lineSpacing: 4),
               ),
             ),
+            pw.SizedBox(height: 24),
+
+            if (hazardPhotos.isNotEmpty) ...[
+              pw.Text(
+                'Hazard Evidence Photos',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+
+              for (int index = 0; index < hazardPhotos.length; index++) ...[
+                pw.Text(
+                  'Photo ${index + 1} of ${hazardPhotos.length}',
+                  style: pw.TextStyle(
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+                pw.Container(
+                  width: double.infinity,
+                  height: 260,
+                  alignment: pw.Alignment.center,
+                  padding: const pw.EdgeInsets.all(8),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey400),
+                    borderRadius: pw.BorderRadius.circular(6),
+                  ),
+                  child: pw.Image(hazardPhotos[index], fit: pw.BoxFit.contain),
+                ),
+                pw.SizedBox(height: 18),
+              ],
+            ],
+
             pw.SizedBox(height: 30),
             pw.Text(
               'Prepared By',
@@ -227,8 +311,27 @@ class PdfService {
     required String riskLevel,
     required String location,
     required String investigationSummary,
+    String evidencePhotoPath = '',
   }) async {
     final pdf = pw.Document();
+
+    final evidencePhotoPaths = evidencePhotoPath
+        .split('|')
+        .map((path) => path.trim())
+        .where((path) => path.isNotEmpty && path.toLowerCase() != 'no photo')
+        .toList();
+
+    final List<pw.MemoryImage> evidencePhotoImages = [];
+
+    for (final photoPath in evidencePhotoPaths) {
+      final recoveredPhoto = await StorageService.getInspectionImage(photoPath);
+
+      if (recoveredPhoto != null) {
+        evidencePhotoImages.add(
+          pw.MemoryImage(await recoveredPhoto.readAsBytes()),
+        );
+      }
+    }
     final type = incidentType.toLowerCase();
 
     String aiRootCause;
@@ -377,6 +480,49 @@ class PdfService {
               ),
             ),
             pw.SizedBox(height: 20),
+
+            if (evidencePhotoImages.isNotEmpty) ...[
+              pw.Text(
+                'Incident Evidence Photos',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 8),
+
+              for (
+                int index = 0;
+                index < evidencePhotoImages.length;
+                index++
+              ) ...[
+                pw.Text(
+                  'Photo ${index + 1} of ${evidencePhotoImages.length}',
+                  style: pw.TextStyle(
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+                pw.Container(
+                  width: double.infinity,
+                  alignment: pw.Alignment.center,
+                  padding: const pw.EdgeInsets.all(8),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey400),
+                    borderRadius: pw.BorderRadius.circular(6),
+                  ),
+                  child: pw.Image(
+                    evidencePhotoImages[index],
+                    height: 220,
+                    fit: pw.BoxFit.contain,
+                  ),
+                ),
+                pw.SizedBox(height: 18),
+              ],
+
+              pw.SizedBox(height: 20),
+            ],
 
             pw.Text(
               'AI Root Cause Analysis',

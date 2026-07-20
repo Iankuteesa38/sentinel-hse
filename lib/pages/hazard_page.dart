@@ -15,7 +15,7 @@ class _HazardPageState extends State<HazardPage> {
   final descriptionController = TextEditingController();
   final reportedByController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
-  File? hazardImage;
+  final List<File> hazardImages = [];
   String category = "Slip / Trip";
   String riskLevel = "Medium";
   String status = "Open";
@@ -24,7 +24,7 @@ class _HazardPageState extends State<HazardPage> {
 
     if (image != null) {
       setState(() {
-        hazardImage = File(image.path);
+        hazardImages.add(File(image.path));
       });
     }
   }
@@ -148,15 +148,44 @@ class _HazardPageState extends State<HazardPage> {
             ],
           ),
 
-          if (hazardImage != null) ...[
+          if (hazardImages.isNotEmpty) ...[
             const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.file(
-                hazardImage!,
-                height: 220,
-                width: double.infinity,
-                fit: BoxFit.cover,
+            SizedBox(
+              height: 230,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: hazardImages.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  return Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          hazardImages[index],
+                          height: 220,
+                          width: 280,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: CircleAvatar(
+                          backgroundColor: Colors.black54,
+                          child: IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () {
+                              setState(() {
+                                hazardImages.removeAt(index);
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ],
@@ -179,19 +208,25 @@ class _HazardPageState extends State<HazardPage> {
 
           ElevatedButton(
             onPressed: () async {
-              String hazardPhotoPath = 'No photo';
+              final List<String> hazardPhotoPaths = [];
 
-              if (hazardImage != null) {
-                hazardPhotoPath = await StorageService.saveImagePermanently(
-                  hazardImage!,
+              for (final image in hazardImages) {
+                final savedPath = await StorageService.saveImagePermanently(
+                  image,
                 );
+
+                hazardPhotoPaths.add(savedPath);
               }
+
+              final hazardPhotosText = hazardPhotoPaths.isEmpty
+                  ? 'No photo'
+                  : hazardPhotoPaths.join(' | ');
               String hazard =
                   "Location: ${locationController.text}\n"
                   "Category: $category\n"
                   "Description: ${descriptionController.text}\n"
                   "Risk Level: $riskLevel\n"
-                  "Photo: $hazardPhotoPath\n"
+                  "Photos: $hazardPhotosText\n"
                   "Reported By: ${reportedByController.text}\n"
                   "Status: $status";
 

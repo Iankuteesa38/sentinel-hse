@@ -275,10 +275,15 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Future<void> openActionHistory(BuildContext context) async {
+  Future<void> openActionHistory(
+    BuildContext context,
+    ActionHistoryFilter filter,
+  ) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const ActionHistoryPage()),
+      MaterialPageRoute(
+        builder: (context) => ActionHistoryPage(filter: filter),
+      ),
     );
 
     await loadDashboardData();
@@ -800,7 +805,10 @@ class _DashboardPageState extends State<DashboardPage> {
                       value: closedActions.toString(),
                       icon: Icons.check_circle,
                       color: Colors.green,
-                      onTap: () => openActionHistory(context),
+                      onTap: () => openActionHistory(
+                        context,
+                        ActionHistoryFilter.closed,
+                      ),
                     ),
                   ),
                 ],
@@ -815,7 +823,8 @@ class _DashboardPageState extends State<DashboardPage> {
                       value: openActions.toString(),
                       icon: Icons.pending_actions,
                       color: Colors.orange,
-                      onTap: () => openActionHistory(context),
+                      onTap: () =>
+                          openActionHistory(context, ActionHistoryFilter.open),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -840,7 +849,10 @@ class _DashboardPageState extends State<DashboardPage> {
                       value: overdueActions.toString(),
                       icon: Icons.alarm,
                       color: Colors.red,
-                      onTap: () => openActionHistory(context),
+                      onTap: () => openActionHistory(
+                        context,
+                        ActionHistoryFilter.overdue,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -925,7 +937,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     'History',
                     Icons.history,
                     Colors.purple,
-                    () => openActionHistory(context),
+                    () => openActionHistory(context, ActionHistoryFilter.all),
                   ),
                   moduleCard(
                     context,

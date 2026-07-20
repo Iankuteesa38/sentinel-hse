@@ -21,6 +21,7 @@ class IncidentDetailsPage extends StatelessWidget {
     'Unsafe Condition',
     'Corrective Actions',
     'Investigation Summary',
+    'Photos',
     'Photo',
     'Status',
     'Date',
@@ -46,14 +47,24 @@ class IncidentDetailsPage extends StatelessWidget {
     final status = _lastValue(report['Status']) ?? 'Open';
     final date = _lastValue(report['Date']);
 
-    final photoPath = _lastValue(report['Photo']);
+    final photosText =
+        _lastValue(report['Photos']) ?? _lastValue(report['Photo']);
 
-    final photoFile =
-        photoPath != null && photoPath.isNotEmpty && photoPath != 'No photo'
-        ? File(photoPath)
-        : null;
+    final photoPaths =
+        photosText == null || photosText.isEmpty || photosText == 'No photo'
+        ? <String>[]
+        : photosText
+              .split('|')
+              .map((path) => path.trim())
+              .where((path) => path.isNotEmpty)
+              .toList();
 
-    final hasPhoto = photoFile?.existsSync() ?? false;
+    final photoFiles = photoPaths
+        .map((path) => File(path))
+        .where((file) => file.existsSync())
+        .toList();
+
+    final hasPhoto = photoFiles.isNotEmpty;
 
     final severityColor = _severityColor(severity);
     final statusColor = _statusColor(status);
@@ -105,13 +116,49 @@ class IncidentDetailsPage extends StatelessWidget {
             _sectionCard(
               title: 'Incident Evidence',
               icon: Icons.photo_camera_outlined,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(
-                  photoFile!,
-                  height: 240,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
+              child: SizedBox(
+                height: 250,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: photoFiles.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    return Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.file(
+                            photoFiles[index],
+                            height: 240,
+                            width: 300,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '${index + 1}/${photoFiles.length}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),

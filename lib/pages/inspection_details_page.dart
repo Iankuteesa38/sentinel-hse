@@ -13,9 +13,106 @@ class InspectionDetailsPage extends StatelessWidget {
   final InspectionRecord record;
 
   const InspectionDetailsPage({super.key, required this.record});
+  Map<String, String> parseInspectionAnalysis(String analysis) {
+    final values = <String, String>{};
+
+    for (final rawLine in analysis.split('\n')) {
+      final line = rawLine.trim();
+      final separatorIndex = line.indexOf(':');
+
+      if (separatorIndex <= 0) {
+        continue;
+      }
+
+      final key = line.substring(0, separatorIndex).trim();
+      final value = line.substring(separatorIndex + 1).trim();
+
+      values[key] = value;
+    }
+
+    return values;
+  }
+
+  bool isChecklistPassed(
+    Map<String, String> inspectionValues,
+    String checklistName,
+  ) {
+    return inspectionValues[checklistName]?.toLowerCase() == 'true';
+  }
+
+  Widget buildChecklistRow(
+    Map<String, String> inspectionValues,
+    String checklistName,
+  ) {
+    final rawStatus =
+        inspectionValues[checklistName]?.trim().toLowerCase() ?? '';
+
+    final isCompliant = rawStatus == 'true' || rawStatus == 'compliant';
+
+    final isNotApplicable =
+        rawStatus == 'not applicable' ||
+        rawStatus == 'n/a' ||
+        rawStatus == 'na';
+
+    final statusText = isCompliant
+        ? 'Compliant'
+        : isNotApplicable
+        ? 'Not Applicable'
+        : 'Non-Compliant';
+
+    final statusColor = isCompliant
+        ? Colors.green
+        : isNotApplicable
+        ? Colors.grey
+        : Colors.red;
+
+    final statusIcon = isCompliant
+        ? Icons.check_circle
+        : isNotApplicable
+        ? Icons.remove_circle_outline
+        : Icons.cancel;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: statusColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: statusColor.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Icon(statusIcon, color: statusColor),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              checklistName,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            statusText,
+            style: TextStyle(color: statusColor, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<List<File>> loadInspectionImages() async {
+    final recoveredImages = await Future.wait(
+      record.imagePaths.map(
+        (imagePath) => StorageService.getInspectionImage(imagePath),
+      ),
+    );
+
+    return recoveredImages.whereType<File>().toList();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final inspectionValues = parseInspectionAnalysis(record.analysis);
     return Scaffold(
       appBar: AppBar(title: const Text('Inspection Details')),
       body: SingleChildScrollView(
@@ -23,8 +120,8 @@ class InspectionDetailsPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            FutureBuilder<File?>(
-              future: StorageService.getInspectionImage(record.imagePath),
+            FutureBuilder<List<File>>(
+              future: loadInspectionImages(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const SizedBox(
@@ -33,29 +130,65 @@ class InspectionDetailsPage extends StatelessWidget {
                   );
                 }
 
-                final recoveredImage = snapshot.data;
+                final recoveredImages = snapshot.data ?? [];
 
-                if (recoveredImage != null) {
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: Image.file(
-                      recoveredImage,
-                      width: double.infinity,
-                      height: 260,
-                      fit: BoxFit.cover,
+                if (recoveredImages.isEmpty) {
+                  return Container(
+                    width: double.infinity,
+                    height: 180,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(14),
                     ),
+                    child: const Text('Inspection photos unavailable'),
                   );
                 }
 
-                return Container(
-                  width: double.infinity,
-                  height: 180,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(14),
+                return SizedBox(
+                  height: 270,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: recoveredImages.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      return Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: Image.file(
+                              recoveredImages[index],
+                              width: 320,
+                              height: 260,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          Positioned(
+                            top: 10,
+                            right: 10,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${index + 1}/${recoveredImages.length}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
-                  child: const Text('Inspection photo unavailable'),
                 );
               },
             ),
@@ -119,34 +252,42 @@ class InspectionDetailsPage extends StatelessWidget {
             const SizedBox(height: 20),
 
             const Text(
-              'AI Hazard Analysis',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              'Inspection Checklist',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 14),
 
-            Card(
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  record.analysis,
-                  style: const TextStyle(fontSize: 16, height: 1.5),
-                ),
-              ),
-            ),
+            buildChecklistRow(inspectionValues, 'Housekeeping'),
+            buildChecklistRow(inspectionValues, 'PPE Compliance'),
+            buildChecklistRow(inspectionValues, 'Fire Extinguishers'),
+            buildChecklistRow(inspectionValues, 'Emergency Exit'),
+            buildChecklistRow(inspectionValues, 'Working at Height'),
+            buildChecklistRow(inspectionValues, 'Scaffolding'),
+            buildChecklistRow(inspectionValues, 'Access and Egress'),
+            buildChecklistRow(inspectionValues, 'Barricades and Signage'),
+            buildChecklistRow(inspectionValues, 'Excavation Safety'),
+            buildChecklistRow(inspectionValues, 'Lifting Operations'),
+            buildChecklistRow(inspectionValues, 'Electrical Safety'),
+            buildChecklistRow(inspectionValues, 'Hot Work'),
+            buildChecklistRow(inspectionValues, 'Tools and Equipment'),
+            buildChecklistRow(inspectionValues, 'First Aid Facilities'),
+            buildChecklistRow(inspectionValues, 'Chemical Storage'),
+            buildChecklistRow(inspectionValues, 'Environmental Controls'),
+            buildChecklistRow(inspectionValues, 'Vehicle Movement'),
+            buildChecklistRow(inspectionValues, 'Welfare Facilities'),
 
             const SizedBox(height: 24),
 
-            FutureBuilder<File?>(
-              future: StorageService.getInspectionImage(record.imagePath),
+            FutureBuilder<List<File>>(
+              future: loadInspectionImages(),
               builder: (context, snapshot) {
-                final recoveredImage = snapshot.data;
+                final recoveredImages = snapshot.data ?? [];
 
                 return SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: recoveredImage == null
+                    onPressed: recoveredImages.isEmpty
                         ? null
                         : () async {
                             await PdfService.generateHazardReport(
@@ -154,7 +295,7 @@ class InspectionDetailsPage extends StatelessWidget {
                               inspector: record.inspector,
                               location: record.location,
                               analysis: record.analysis,
-                              imageFile: recoveredImage,
+                              imageFiles: recoveredImages,
                             );
                           },
                     icon: const Icon(Icons.picture_as_pdf),

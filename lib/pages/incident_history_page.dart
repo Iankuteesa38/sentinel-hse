@@ -169,6 +169,10 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
                           final severity = extractValue(['Severity']);
 
                           final location = extractValue(['Location']);
+                          final evidencePhotosText = extractValue([
+                            'Photos',
+                            'Photo',
+                          ]);
 
                           String riskLevel;
 
@@ -187,6 +191,7 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
                             riskLevel: riskLevel,
                             location: location,
                             investigationSummary: incidentText,
+                            evidencePhotoPath: evidencePhotosText,
                           );
                         } else if (value == 'ai') {
                           final incidentText = incidents[index];

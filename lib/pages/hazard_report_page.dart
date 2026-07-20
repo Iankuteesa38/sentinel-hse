@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-
 import '../models/inspection_record.dart';
+import '../services/storage_service.dart';
 
 class HazardReportPage extends StatelessWidget {
   final InspectionRecord record;
@@ -11,7 +11,9 @@ class HazardReportPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageFile = File(record.imagePath);
+    final imageFuture = record.imagePath.isEmpty
+        ? Future<File?>.value(null)
+        : StorageService.getInspectionImage(record.imagePath);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Hazard Report')),
@@ -20,11 +22,33 @@ class HazardReportPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (record.imagePath.isNotEmpty && imageFile.existsSync())
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(imageFile, height: 220, fit: BoxFit.cover),
-              ),
+            FutureBuilder<File?>(
+              future: imageFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SizedBox(
+                    height: 220,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                final recoveredImage = snapshot.data;
+
+                if (recoveredImage == null) {
+                  return const SizedBox.shrink();
+                }
+
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(
+                    recoveredImage,
+                    width: double.infinity,
+                    height: 220,
+                    fit: BoxFit.cover,
+                  ),
+                );
+              },
+            ),
             const SizedBox(height: 16),
             _buildTextSection('Inspection ID', record.inspectionId),
             _buildTextSection(
