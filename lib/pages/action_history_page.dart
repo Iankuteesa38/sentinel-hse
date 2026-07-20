@@ -142,6 +142,47 @@ class _ActionHistoryPageState extends State<ActionHistoryPage> {
     });
   }
 
+  Future<void> deleteAction(int index) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete CAPA'),
+          content: const Text(
+            'Are you sure you want to permanently delete this CAPA record?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    final updatedActions = List<String>.from(actions);
+    updatedActions.removeAt(index);
+
+    await StorageService.saveActions(updatedActions);
+
+    if (!mounted) return;
+
+    setState(() {
+      actions = updatedActions;
+    });
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('CAPA record deleted')));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -219,10 +260,45 @@ class _ActionHistoryPageState extends State<ActionHistoryPage> {
                               ),
                             );
                           },
-                          trailing: IconButton(
-                            icon: const Icon(Icons.check),
-                            onPressed: () =>
-                                closeAction(actions.indexOf(action)),
+                          trailing: PopupMenuButton<String>(
+                            icon: const Icon(Icons.more_vert),
+                            onSelected: (value) async {
+                              final originalIndex = actions.indexOf(action);
+
+                              if (value == 'close') {
+                                await closeAction(originalIndex);
+                              } else if (value == 'delete') {
+                                await deleteAction(originalIndex);
+                              }
+                            },
+                            itemBuilder: (context) => const [
+                              PopupMenuItem(
+                                value: 'close',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.check),
+                                    SizedBox(width: 10),
+                                    Text('Close CAPA'),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.delete_outline,
+                                      color: Colors.red,
+                                    ),
+                                    SizedBox(width: 10),
+                                    Text(
+                                      'Delete CAPA',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       );

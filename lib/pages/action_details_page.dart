@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../services/pdf_service.dart';
 
 class ActionDetailsPage extends StatelessWidget {
   final String action;
@@ -128,13 +129,24 @@ class ActionDetailsPage extends StatelessWidget {
 
           if (hazardDescriptions.isNotEmpty)
             _sectionCard(
-              title: 'Hazard',
-              icon: Icons.warning_amber_rounded,
-              child: Text(
-                hazardDescriptions.join('\n'),
-                style: const TextStyle(fontSize: 16, height: 1.4),
+              title: 'Record Information',
+              icon: Icons.calendar_today_outlined,
+              child: _detailRow(
+                'Created',
+                actionFields['Date'] ?? 'Not specified',
               ),
             ),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                await PdfService.generateCapaReport(capaData: action);
+              },
+              icon: const Icon(Icons.picture_as_pdf),
+              label: const Text('Generate CAPA PDF'),
+            ),
+          ),
 
           if (sourceFields.isNotEmpty)
             _sectionCard(

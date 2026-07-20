@@ -29,6 +29,80 @@ class PdfService {
 
     final String formattedTime = DateFormat('HH:mm').format(DateTime.now());
 
+    final inspectionValues = <String, String>{};
+
+    for (final rawLine in analysis.split('\n')) {
+      final line = rawLine.trim();
+      final separatorIndex = line.indexOf(':');
+
+      if (separatorIndex <= 0) {
+        continue;
+      }
+
+      final key = line.substring(0, separatorIndex).trim();
+      final value = line.substring(separatorIndex + 1).trim();
+
+      inspectionValues[key] = value;
+    }
+
+    const checklistItems = <String>[
+      'Housekeeping',
+      'PPE Compliance',
+      'Fire Extinguishers',
+      'Emergency Exit',
+      'Working at Height',
+      'Scaffolding',
+      'Access and Egress',
+      'Barricades and Signage',
+      'Excavation Safety',
+      'Lifting Operations',
+      'Electrical Safety',
+      'Hot Work',
+      'Tools and Equipment',
+      'First Aid Facilities',
+      'Chemical Storage',
+      'Environmental Controls',
+      'Vehicle Movement',
+      'Welfare Facilities',
+    ];
+
+    String checklistStatus(String item) {
+      final rawStatus =
+          inspectionValues[item]?.trim().toLowerCase() ?? 'not applicable';
+
+      if (rawStatus == 'true' || rawStatus == 'compliant') {
+        return 'Compliant';
+      }
+
+      if (rawStatus == 'false' ||
+          rawStatus == 'non-compliant' ||
+          rawStatus == 'not compliant') {
+        return 'Non-Compliant';
+      }
+
+      return 'Not Applicable';
+    }
+
+    final compliantCount = checklistItems
+        .where((item) => checklistStatus(item) == 'Compliant')
+        .length;
+
+    final nonCompliantCount = checklistItems
+        .where((item) => checklistStatus(item) == 'Non-Compliant')
+        .length;
+
+    final notApplicableCount = checklistItems
+        .where((item) => checklistStatus(item) == 'Not Applicable')
+        .length;
+
+    final projectName = inspectionValues['Project']?.trim().isNotEmpty == true
+        ? inspectionValues['Project']!.trim()
+        : 'Not specified';
+
+    final overallResult = nonCompliantCount > 0
+        ? 'Action Required'
+        : 'Satisfactory';
+
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
@@ -47,7 +121,7 @@ class PdfService {
             pw.SizedBox(height: 8),
             pw.Center(
               child: pw.Text(
-                'Hazard Inspection Report',
+                'Daily Site Inspection Report',
                 style: pw.TextStyle(
                   fontSize: 18,
                   fontWeight: pw.FontWeight.bold,
@@ -64,10 +138,12 @@ class PdfService {
               },
               children: [
                 _reportRow('Inspection ID', inspectionId),
+                _reportRow('Project', projectName),
                 _reportRow('Date', formattedDate),
                 _reportRow('Time', formattedTime),
                 _reportRow('Inspector', inspector),
                 _reportRow('Location', location),
+                _reportRow('Overall Result', overallResult),
                 _reportRow('Status', 'Open'),
               ],
             ),
@@ -75,22 +151,98 @@ class PdfService {
             pw.SizedBox(height: 24),
 
             pw.Text(
-              'AI Hazard Analysis',
+              'Inspection Summary',
               style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
             ),
             pw.SizedBox(height: 10),
 
-            pw.Container(
-              width: double.infinity,
-              padding: const pw.EdgeInsets.all(14),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: PdfColors.grey400),
-                borderRadius: pw.BorderRadius.circular(6),
-              ),
-              child: pw.Text(
-                analysis,
-                style: const pw.TextStyle(fontSize: 11, lineSpacing: 4),
-              ),
+            pw.Table(
+              border: pw.TableBorder.all(color: PdfColors.grey400),
+              columnWidths: const {
+                0: pw.FlexColumnWidth(2),
+                1: pw.FlexColumnWidth(1),
+              },
+              children: [
+                _reportRow('Compliant Items', compliantCount.toString()),
+                _reportRow('Non-Compliant Items', nonCompliantCount.toString()),
+                _reportRow(
+                  'Not Applicable Items',
+                  notApplicableCount.toString(),
+                ),
+                _reportRow(
+                  'Total Checklist Items',
+                  checklistItems.length.toString(),
+                ),
+              ],
+            ),
+
+            pw.SizedBox(height: 24),
+
+            pw.Text(
+              'Inspection Checklist',
+              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+            ),
+            pw.SizedBox(height: 10),
+
+            pw.Table(
+              border: pw.TableBorder.all(color: PdfColors.grey400),
+              columnWidths: const {
+                0: pw.FlexColumnWidth(3),
+                1: pw.FlexColumnWidth(1.5),
+              },
+              children: [
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                  children: [
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(9),
+                      child: pw.Text(
+                        'Checklist Item',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(9),
+                      child: pw.Text(
+                        'Status',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                ...checklistItems.map((item) {
+                  final status = checklistStatus(item);
+
+                  final statusColor = status == 'Compliant'
+                      ? PdfColors.green
+                      : status == 'Non-Compliant'
+                      ? PdfColors.red
+                      : PdfColors.grey700;
+
+                  return pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(9),
+                        child: pw.Text(
+                          item,
+                          style: const pw.TextStyle(fontSize: 10),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(9),
+                        child: pw.Text(
+                          status,
+                          style: pw.TextStyle(
+                            fontSize: 10,
+                            fontWeight: pw.FontWeight.bold,
+                            color: statusColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+              ],
             ),
 
             pw.SizedBox(height: 24),
@@ -601,6 +753,450 @@ class PdfService {
 
     await Printing.layoutPdf(
       name: 'Sentinel_HSE_AI_Investigation_Report_$reportNumber.pdf',
+      onLayout: (format) async => pdf.save(),
+    );
+  }
+
+  static Future<void> generateCapaReport({required String capaData}) async {
+    final pdf = pw.Document();
+
+    final lines = capaData
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+
+    final actionIndex = lines.indexWhere((line) => line.startsWith('Action:'));
+
+    final hazardLines = actionIndex == -1
+        ? List<String>.from(lines)
+        : lines.sublist(0, actionIndex);
+
+    final actionLines = actionIndex == -1
+        ? <String>[]
+        : lines.sublist(actionIndex);
+
+    if (hazardLines.isNotEmpty && hazardLines.first.startsWith('Hazard:')) {
+      hazardLines[0] = hazardLines.first.substring('Hazard:'.length).trim();
+    }
+
+    final hazardFields = <String, String>{};
+    final hazardDescriptions = <String>[];
+
+    for (final line in hazardLines) {
+      final separatorIndex = line.indexOf(':');
+
+      if (separatorIndex == -1) {
+        hazardDescriptions.add(line);
+        continue;
+      }
+
+      final title = line.substring(0, separatorIndex).trim();
+      final value = line.substring(separatorIndex + 1).trim();
+
+      hazardFields[title] = value;
+    }
+
+    final actionFields = <String, String>{};
+
+    for (final line in actionLines) {
+      final separatorIndex = line.indexOf(':');
+
+      if (separatorIndex == -1) continue;
+
+      final title = line.substring(0, separatorIndex).trim();
+      final value = line.substring(separatorIndex + 1).trim();
+
+      actionFields[title] = value;
+    }
+
+    List<String> extractPhotoPaths(String? storedPaths) {
+      if (storedPaths == null ||
+          storedPaths.trim().isEmpty ||
+          storedPaths.toLowerCase() == 'no photo') {
+        return [];
+      }
+
+      return storedPaths
+          .split('|')
+          .map((path) => path.trim())
+          .where((path) => path.isNotEmpty)
+          .toList();
+    }
+
+    Future<List<pw.MemoryImage>> loadPhotos(List<String> storedPaths) async {
+      final images = <pw.MemoryImage>[];
+
+      for (final storedPath in storedPaths) {
+        final recoveredFile = await StorageService.getInspectionImage(
+          storedPath,
+        );
+
+        if (recoveredFile != null) {
+          images.add(pw.MemoryImage(await recoveredFile.readAsBytes()));
+        }
+      }
+
+      return images;
+    }
+
+    final inspectionPhotoPaths = extractPhotoPaths(
+      hazardFields['Photos'] ?? hazardFields['Photo'],
+    );
+
+    final evidencePhotoPaths = extractPhotoPaths(
+      actionFields['Evidence Photos'] ?? actionFields['Evidence Photo'],
+    );
+
+    final inspectionPhotos = await loadPhotos(inspectionPhotoPaths);
+
+    final evidencePhotos = await loadPhotos(evidencePhotoPaths);
+
+    const checklistItems = <String>[
+      'Housekeeping',
+      'PPE Compliance',
+      'Fire Extinguishers',
+      'Emergency Exit',
+      'Working at Height',
+      'Scaffolding',
+      'Access and Egress',
+      'Barricades and Signage',
+      'Excavation Safety',
+      'Lifting Operations',
+      'Electrical Safety',
+      'Hot Work',
+      'Tools and Equipment',
+      'First Aid Facilities',
+      'Chemical Storage',
+      'Environmental Controls',
+      'Vehicle Movement',
+      'Welfare Facilities',
+    ];
+
+    final checklistEntries = checklistItems
+        .where((item) => hazardFields[item] != null)
+        .map((item) => MapEntry(item, hazardFields[item] ?? 'Not specified'))
+        .toList();
+
+    String friendlyStatus(String value) {
+      final status = value.trim().toLowerCase();
+
+      if (status == 'true' || status == 'compliant') {
+        return 'Compliant';
+      }
+
+      if (status == 'false' ||
+          status == 'non-compliant' ||
+          status == 'not compliant') {
+        return 'Non-Compliant';
+      }
+
+      if (status == 'not applicable' || status == 'n/a' || status == 'na') {
+        return 'Not Applicable';
+      }
+
+      return value;
+    }
+
+    final reportNumber =
+        'CAPA-${DateFormat('yyyyMMdd-HHmmss').format(DateTime.now())}';
+
+    final generatedDate = DateFormat('dd MMMM yyyy').format(DateTime.now());
+
+    final generatedTime = DateFormat('HH:mm').format(DateTime.now());
+
+    final status = actionFields['Status'] ?? 'Not specified';
+    final priority = actionFields['Priority'] ?? 'Not specified';
+    final dueDate = actionFields['Due Date'] ?? 'Not specified';
+    final responsible = actionFields['Responsible'] ?? 'Not specified';
+    final actionRequired = actionFields['Action'] ?? 'Not specified';
+    final createdDate = actionFields['Date'] ?? 'Not specified';
+
+    final sourceFields = <String, String>{
+      if (hazardFields['Project']?.isNotEmpty == true)
+        'Project': hazardFields['Project']!,
+      if (hazardFields['Location']?.isNotEmpty == true)
+        'Location': hazardFields['Location']!,
+      if (hazardFields['Inspector']?.isNotEmpty == true)
+        'Inspector': hazardFields['Inspector']!,
+      if (hazardFields['Date']?.isNotEmpty == true)
+        'Inspection Date': hazardFields['Date']!,
+    };
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (context) {
+          return [
+            pw.Center(
+              child: pw.Text(
+                'SENTINEL HSE AI',
+                style: pw.TextStyle(
+                  fontSize: 24,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+            pw.SizedBox(height: 8),
+            pw.Center(
+              child: pw.Text(
+                'Corrective Action / CAPA Report',
+                style: pw.TextStyle(
+                  fontSize: 18,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+            pw.SizedBox(height: 8),
+            pw.Center(
+              child: pw.Text(
+                'Report Number: $reportNumber',
+                style: const pw.TextStyle(fontSize: 11),
+              ),
+            ),
+            pw.SizedBox(height: 24),
+
+            pw.Table(
+              border: pw.TableBorder.all(color: PdfColors.grey400),
+              columnWidths: const {
+                0: pw.FlexColumnWidth(1.3),
+                1: pw.FlexColumnWidth(2.7),
+              },
+              children: [
+                _reportRow('Generated Date', generatedDate),
+                _reportRow('Generated Time', generatedTime),
+                _reportRow('Status', status),
+                _reportRow('Priority', priority),
+                _reportRow('Due Date', dueDate),
+                _reportRow('Responsible Person', responsible),
+                _reportRow('Created', createdDate),
+              ],
+            ),
+
+            if (sourceFields.isNotEmpty) ...[
+              pw.SizedBox(height: 24),
+              pw.Text(
+                'Source Inspection',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Table(
+                border: pw.TableBorder.all(color: PdfColors.grey400),
+                columnWidths: const {
+                  0: pw.FlexColumnWidth(1.3),
+                  1: pw.FlexColumnWidth(2.7),
+                },
+                children: sourceFields.entries
+                    .map((entry) => _reportRow(entry.key, entry.value))
+                    .toList(),
+              ),
+            ],
+
+            pw.SizedBox(height: 24),
+            pw.Text(
+              'Hazard Description',
+              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+            ),
+            pw.SizedBox(height: 10),
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.all(14),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey400),
+                borderRadius: pw.BorderRadius.circular(6),
+              ),
+              child: pw.Text(
+                hazardDescriptions.isEmpty
+                    ? 'Not specified'
+                    : hazardDescriptions.join('\n'),
+                style: const pw.TextStyle(fontSize: 11, lineSpacing: 4),
+              ),
+            ),
+
+            if (checklistEntries.isNotEmpty) ...[
+              pw.SizedBox(height: 24),
+              pw.Text(
+                'Inspection Checklist',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Table(
+                border: pw.TableBorder.all(color: PdfColors.grey400),
+                columnWidths: const {
+                  0: pw.FlexColumnWidth(3),
+                  1: pw.FlexColumnWidth(1.5),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColors.grey200,
+                    ),
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(9),
+                        child: pw.Text(
+                          'Checklist Item',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(9),
+                        child: pw.Text(
+                          'Status',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  ...checklistEntries.map((entry) {
+                    final displayStatus = friendlyStatus(entry.value);
+
+                    final statusColor = displayStatus == 'Compliant'
+                        ? PdfColors.green
+                        : displayStatus == 'Non-Compliant'
+                        ? PdfColors.red
+                        : PdfColors.grey700;
+
+                    return pw.TableRow(
+                      children: [
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(9),
+                          child: pw.Text(
+                            entry.key,
+                            style: const pw.TextStyle(fontSize: 10),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(9),
+                          child: pw.Text(
+                            displayStatus,
+                            style: pw.TextStyle(
+                              fontSize: 10,
+                              fontWeight: pw.FontWeight.bold,
+                              color: statusColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+            ],
+
+            pw.SizedBox(height: 24),
+            pw.Text(
+              'Corrective Action Required',
+              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+            ),
+            pw.SizedBox(height: 10),
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.all(14),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey400),
+                borderRadius: pw.BorderRadius.circular(6),
+              ),
+              child: pw.Text(
+                actionRequired,
+                style: const pw.TextStyle(fontSize: 11, lineSpacing: 4),
+              ),
+            ),
+
+            if (inspectionPhotos.isNotEmpty) ...[
+              pw.SizedBox(height: 24),
+              pw.Text(
+                'Source Inspection Photos',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+
+              for (int index = 0; index < inspectionPhotos.length; index++) ...[
+                pw.Text(
+                  'Photo ${index + 1} of ${inspectionPhotos.length}',
+                  style: pw.TextStyle(
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+                pw.Container(
+                  width: double.infinity,
+                  height: 250,
+                  alignment: pw.Alignment.center,
+                  child: pw.Image(
+                    inspectionPhotos[index],
+                    fit: pw.BoxFit.contain,
+                  ),
+                ),
+                pw.SizedBox(height: 18),
+              ],
+            ],
+
+            if (evidencePhotos.isNotEmpty) ...[
+              pw.SizedBox(height: 24),
+              pw.Text(
+                'Corrective Action Evidence',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+
+              for (int index = 0; index < evidencePhotos.length; index++) ...[
+                pw.Text(
+                  'Evidence ${index + 1} of ${evidencePhotos.length}',
+                  style: pw.TextStyle(
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+                pw.Container(
+                  width: double.infinity,
+                  height: 250,
+                  alignment: pw.Alignment.center,
+                  child: pw.Image(
+                    evidencePhotos[index],
+                    fit: pw.BoxFit.contain,
+                  ),
+                ),
+                pw.SizedBox(height: 18),
+              ],
+            ],
+
+            pw.SizedBox(height: 30),
+            pw.Text(
+              'Responsible Person Signature',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+            ),
+            pw.SizedBox(height: 30),
+            pw.Container(
+              width: 220,
+              decoration: const pw.BoxDecoration(
+                border: pw.Border(
+                  bottom: pw.BorderSide(color: PdfColors.black),
+                ),
+              ),
+            ),
+          ];
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(
+      name: 'Sentinel_HSE_CAPA_$reportNumber.pdf',
       onLayout: (format) async => pdf.save(),
     );
   }
