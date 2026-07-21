@@ -24,7 +24,7 @@ class PdfService {
     }
 
     final String formattedDate = DateFormat(
-      'dd MMMM yyyy',
+      'dd MMM yyyy',
     ).format(DateTime.now());
 
     final String formattedTime = DateFormat('HH:mm').format(DateTime.now());
@@ -94,19 +94,25 @@ class PdfService {
     final notApplicableCount = checklistItems
         .where((item) => checklistStatus(item) == 'Not Applicable')
         .length;
-
+    final compliancePercentage = (compliantCount / checklistItems.length) * 100;
     final projectName = inspectionValues['Project']?.trim().isNotEmpty == true
         ? inspectionValues['Project']!.trim()
         : 'Not specified';
-
+    final nonCompliantItems = checklistItems
+        .where((item) => checklistStatus(item) == 'Non-Compliant')
+        .toList();
     final overallResult = nonCompliantCount > 0
         ? 'Action Required'
         : 'Satisfactory';
-
+    final riskLevel = nonCompliantCount >= 3
+        ? 'High'
+        : nonCompliantCount >= 1
+        ? 'Medium'
+        : 'Low';
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
+        margin: const pw.EdgeInsets.fromLTRB(32, 48, 32, 32),
         build: (context) {
           return [
             pw.Center(
@@ -143,7 +149,12 @@ class PdfService {
                 _reportRow('Time', formattedTime),
                 _reportRow('Inspector', inspector),
                 _reportRow('Location', location),
+                _reportRow(
+                  'Evidence Photos',
+                  inspectionImages.length.toString(),
+                ),
                 _reportRow('Overall Result', overallResult),
+                _reportRow('Risk Level', riskLevel),
                 _reportRow('Status', 'Open'),
               ],
             ),
@@ -164,6 +175,10 @@ class PdfService {
               },
               children: [
                 _reportRow('Compliant Items', compliantCount.toString()),
+                _reportRow(
+                  'Compliance Percentage',
+                  '${compliancePercentage.toStringAsFixed(1)}%',
+                ),
                 _reportRow('Non-Compliant Items', nonCompliantCount.toString()),
                 _reportRow(
                   'Not Applicable Items',
@@ -245,6 +260,29 @@ class PdfService {
               ],
             ),
 
+            pw.Text(
+              'Action Summary',
+              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+            ),
+            pw.SizedBox(height: 10),
+
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.all(12),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey400),
+                borderRadius: pw.BorderRadius.circular(6),
+              ),
+              child: nonCompliantItems.isEmpty
+                  ? pw.Text('No non-compliant items identified.')
+                  : pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: nonCompliantItems
+                          .map((item) => pw.Text('- $item'))
+                          .toList(),
+                    ),
+            ),
+
             pw.SizedBox(height: 24),
 
             pw.Text(
@@ -298,7 +336,7 @@ class PdfService {
     );
 
     await Printing.layoutPdf(
-      name: 'Sentinel_HSE_Hazard_Report_$inspectionId.pdf',
+      name: 'Sentinel_HSE_Daily_Inspection_$inspectionId.pdf',
       onLayout: (format) async => pdf.save(),
     );
   }
