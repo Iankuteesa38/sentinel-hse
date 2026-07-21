@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/risk_assessment_result.dart';
+import '../services/risk_assessment_pdf_service.dart';
 
 class RiskAssessmentReportPage extends StatelessWidget {
   final RiskAssessmentResult report;
@@ -20,7 +21,26 @@ class RiskAssessmentReportPage extends StatelessWidget {
     ).format(createdAt.toLocal());
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Risk Assessment Report')),
+      appBar: AppBar(
+        title: const Text('Risk Assessment Report'),
+        actions: [
+          IconButton(
+            tooltip: 'Generate PDF',
+            icon: const Icon(Icons.picture_as_pdf),
+            onPressed: () async {
+              try {
+                await RiskAssessmentPdfService.generateReport(result: report);
+              } catch (error) {
+                if (!context.mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Unable to generate PDF: $error')),
+                );
+              }
+            },
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
