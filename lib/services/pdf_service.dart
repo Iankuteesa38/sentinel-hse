@@ -363,7 +363,50 @@ class PdfService {
         .map((path) => path.trim())
         .where((path) => path.isNotEmpty && path.toLowerCase() != 'no photo')
         .toList();
+    final visibleLines = hazardData
+        .split('\n')
+        .map((line) => line.trim())
+        .where(
+          (line) =>
+              line.isNotEmpty &&
+              !line.startsWith('Photo:') &&
+              !line.startsWith('Photos:'),
+        )
+        .toList();
 
+    String? finalHazardStatus;
+    final cleanedHazardLines = <String>[];
+
+    for (int index = 0; index < visibleLines.length; index++) {
+      final line = visibleLines[index];
+      final lowerLine = line.toLowerCase();
+
+      if (lowerLine == 'status:') {
+        if (index + 1 < visibleLines.length) {
+          finalHazardStatus = visibleLines[index + 1];
+          index++;
+        }
+        continue;
+      }
+
+      if (lowerLine.startsWith('status:')) {
+        final statusValue = line.substring(line.indexOf(':') + 1).trim();
+
+        if (statusValue.isNotEmpty) {
+          finalHazardStatus = statusValue;
+        }
+
+        continue;
+      }
+
+      cleanedHazardLines.add(line);
+    }
+
+    if (finalHazardStatus != null) {
+      cleanedHazardLines.add('Status: $finalHazardStatus');
+    }
+
+    final visibleHazardData = cleanedHazardLines.join('\n');
     final List<pw.MemoryImage> hazardPhotos = [];
 
     for (final photoPath in photoPaths) {
@@ -381,7 +424,7 @@ class PdfService {
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
+        margin: const pw.EdgeInsets.fromLTRB(32, 48, 32, 32),
         build: (context) {
           return [
             pw.Center(
@@ -422,18 +465,25 @@ class PdfService {
               style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
             ),
             pw.SizedBox(height: 10),
-            pw.Container(
-              width: double.infinity,
-              padding: const pw.EdgeInsets.all(14),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: PdfColors.grey400),
-                borderRadius: pw.BorderRadius.circular(6),
-              ),
-              child: pw.Text(
-                hazardData,
-                style: const pw.TextStyle(fontSize: 11, lineSpacing: 4),
-              ),
-            ),
+            ...visibleHazardData
+                .split('\n')
+                .map((line) => line.trim())
+                .where((line) => line.isNotEmpty)
+                .map(
+                  (line) => pw.Container(
+                    width: double.infinity,
+                    padding: const pw.EdgeInsets.all(10),
+                    margin: const pw.EdgeInsets.only(bottom: 4),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.grey400),
+                      borderRadius: pw.BorderRadius.circular(4),
+                    ),
+                    child: pw.Text(
+                      line,
+                      style: const pw.TextStyle(fontSize: 11, lineSpacing: 3),
+                    ),
+                  ),
+                ),
             pw.SizedBox(height: 24),
 
             if (hazardPhotos.isNotEmpty) ...[
