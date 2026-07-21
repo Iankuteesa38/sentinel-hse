@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/jsa_result.dart';
+import '../services/jsa_pdf_service.dart';
 
 class JsaReportPage extends StatelessWidget {
   final JsaResult report;
@@ -15,7 +16,26 @@ class JsaReportPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('JSA Report')),
+      appBar: AppBar(
+        title: const Text('JSA Report'),
+        actions: [
+          IconButton(
+            tooltip: 'Generate PDF',
+            icon: const Icon(Icons.picture_as_pdf),
+            onPressed: () async {
+              try {
+                await JsaPdfService.generateReport(result: report);
+              } catch (error) {
+                if (!context.mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Unable to generate PDF: $error')),
+                );
+              }
+            },
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
