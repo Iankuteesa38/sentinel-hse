@@ -3,7 +3,7 @@ class ApiConstants {
 
   /// AI Backend
   static const String aiBaseUrl =
-      'https://sentinel-hse-ai.iankuteesa.workers.dev';
+      'https://sentinel-ai-backend-0qlb.onrender.com';
 
   /// Endpoints
   static const String analyzeHazard = '$aiBaseUrl/analyze-hazard';

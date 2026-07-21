@@ -40,7 +40,9 @@ class SentinelAIService {
     );
 
     if (response.statusCode != 200) {
-      throw Exception('AI request failed.');
+      throw Exception(
+        'AI request failed (${response.statusCode}): ${response.body}',
+      );
     }
 
     return jsonDecode(response.body) as Map<String, dynamic>;
