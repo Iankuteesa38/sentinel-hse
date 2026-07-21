@@ -26,6 +26,28 @@ class RiskAssessmentStorageService {
       0,
       jsonEncode({
         'task': report.task,
+        'entries': report.entries.map((entry) {
+          return {
+            'hazard': entry.hazard,
+            'causes': entry.causes,
+            'topEvent': entry.topEvent,
+            'consequences': entry.consequences,
+            'personsAtRisk': entry.personsAtRisk,
+            'preventiveControls': entry.preventiveControls,
+            'mitigationMeasures': entry.mitigationMeasures,
+            'initialRating': {
+              'severity': entry.initialRating.severity,
+              'likelihood': entry.initialRating.likelihood,
+              'rating': entry.initialRating.code,
+            },
+            'residualRating': {
+              'severity': entry.residualRating.severity,
+              'likelihood': entry.residualRating.likelihood,
+              'rating': entry.residualRating.code,
+            },
+            'recommendedActions': entry.recommendedActions,
+          };
+        }).toList(),
         'hazards': report.hazards,
         'personsAtRisk': report.personsAtRisk,
         'existingControls': report.existingControls,
