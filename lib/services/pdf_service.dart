@@ -942,13 +942,31 @@ class PdfService {
     final generatedDate = DateFormat('dd MMM yyyy').format(DateTime.now());
 
     final generatedTime = DateFormat('HH:mm').format(DateTime.now());
+    String formatStoredDate(String? value, {bool includeTime = false}) {
+      if (value == null || value.trim().isEmpty) {
+        return 'Not specified';
+      }
+
+      final parsedDate = DateTime.tryParse(value.trim());
+
+      if (parsedDate == null) {
+        return value.trim();
+      }
+
+      return DateFormat(
+        includeTime ? 'dd MMM yyyy, HH:mm' : 'dd MMM yyyy',
+      ).format(parsedDate);
+    }
 
     final status = actionFields['Status'] ?? 'Not specified';
     final priority = actionFields['Priority'] ?? 'Not specified';
-    final dueDate = actionFields['Due Date'] ?? 'Not specified';
+    final dueDate = formatStoredDate(actionFields['Due Date']);
     final responsible = actionFields['Responsible'] ?? 'Not specified';
     final actionRequired = actionFields['Action'] ?? 'Not specified';
-    final createdDate = actionFields['Date'] ?? 'Not specified';
+    final createdDate = formatStoredDate(
+      actionFields['Date'],
+      includeTime: true,
+    );
 
     final sourceFields = <String, String>{
       if (hazardFields['Project']?.isNotEmpty == true)
@@ -958,7 +976,10 @@ class PdfService {
       if (hazardFields['Inspector']?.isNotEmpty == true)
         'Inspector': hazardFields['Inspector']!,
       if (hazardFields['Date']?.isNotEmpty == true)
-        'Inspection Date': hazardFields['Date']!,
+        'Inspection Date': formatStoredDate(
+          hazardFields['Date'],
+          includeTime: true,
+        ),
     };
 
     pdf.addPage(
