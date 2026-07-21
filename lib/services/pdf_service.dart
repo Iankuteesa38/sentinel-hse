@@ -417,7 +417,7 @@ class PdfService {
       }
     }
 
-    final formattedDate = DateFormat('dd MMMM yyyy').format(DateTime.now());
+    final formattedDate = DateFormat('dd MMM yyyy').format(DateTime.now());
 
     final formattedTime = DateFormat('HH:mm').format(DateTime.now());
 
