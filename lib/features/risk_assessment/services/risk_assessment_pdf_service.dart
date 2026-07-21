@@ -1,7 +1,7 @@
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-
+import 'package:intl/intl.dart';
 import '../models/risk_assessment_result.dart';
 
 class RiskAssessmentPdfService {
@@ -11,17 +11,34 @@ class RiskAssessmentPdfService {
     required RiskAssessmentResult result,
   }) async {
     final pdf = pw.Document();
-
+    final formattedDate = DateFormat('dd MMM yyyy').format(DateTime.now());
+    final formattedTime = DateFormat('HH:mm').format(DateTime.now());
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
+        margin: const pw.EdgeInsets.fromLTRB(32, 48, 32, 32),
         build: (context) => [
-          pw.Text(
-            'Risk Assessment Report',
-            style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
+          pw.Center(
+            child: pw.Text(
+              'SENTINEL HSE AI',
+              style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
+            ),
           ),
-          pw.SizedBox(height: 16),
+          pw.SizedBox(height: 8),
+          pw.Center(
+            child: pw.Text(
+              'AI Risk Assessment Report',
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+            ),
+          ),
+          pw.SizedBox(height: 6),
+          pw.Center(
+            child: pw.Text(
+              'Generated: $formattedDate, $formattedTime',
+              style: const pw.TextStyle(fontSize: 11),
+            ),
+          ),
+          pw.SizedBox(height: 24),
 
           _sectionTitle('Task'),
           pw.Text(result.task),
