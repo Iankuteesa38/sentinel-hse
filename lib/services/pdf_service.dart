@@ -640,14 +640,14 @@ class PdfService {
       aiLessonsLearned =
           'All incidents must be reported promptly, investigated thoroughly, and communicated to prevent recurrence.';
     }
-    final formattedDate = DateFormat('dd MMMM yyyy').format(DateTime.now());
+    final formattedDate = DateFormat('dd MMM yyyy').format(DateTime.now());
     final formattedTime = DateFormat('HH:mm').format(DateTime.now());
     final reportNumber =
         'AI-${DateFormat('yyyyMMdd-HHmmss').format(DateTime.now())}';
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
+        margin: const pw.EdgeInsets.fromLTRB(32, 48, 32, 32),
         build: (context) {
           return [
             pw.Center(
