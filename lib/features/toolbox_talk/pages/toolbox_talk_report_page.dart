@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../models/toolbox_talk_result.dart';
+import '../services/toolbox_talk_pdf_service.dart';
 import '../../../services/storage_service.dart';
 
 class ToolboxTalkReportPage extends StatelessWidget {
@@ -21,7 +22,26 @@ class ToolboxTalkReportPage extends StatelessWidget {
       evidencePhotoPaths.map((path) => StorageService.getInspectionImage(path)),
     );
     return Scaffold(
-      appBar: AppBar(title: const Text('Toolbox Talk Report')),
+      appBar: AppBar(
+        title: const Text('Toolbox Talk Report'),
+        actions: [
+          IconButton(
+            tooltip: 'Generate PDF',
+            icon: const Icon(Icons.picture_as_pdf),
+            onPressed: () async {
+              try {
+                await ToolboxTalkPdfService.generateReport(result: report);
+              } catch (error) {
+                if (!context.mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Unable to generate PDF: $error')),
+                );
+              }
+            },
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
