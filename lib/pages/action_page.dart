@@ -19,7 +19,7 @@ class _ActionPageState extends State<ActionPage> {
   final actionController = TextEditingController();
   final responsibleController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
-  File? evidenceImage;
+  final List<File> evidenceImages = [];
   String priority = "Medium";
   String status = "Open";
   DateTime? dueDate;
@@ -37,7 +37,7 @@ class _ActionPageState extends State<ActionPage> {
 
     if (image != null) {
       setState(() {
-        evidenceImage = File(image.path);
+        evidenceImages.add(File(image.path));
       });
     }
   }
@@ -134,15 +134,42 @@ class _ActionPageState extends State<ActionPage> {
             ],
           ),
 
-          if (evidenceImage != null) ...[
+          if (evidenceImages.isNotEmpty) ...[
             const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.file(
-                evidenceImage!,
-                height: 220,
-                width: double.infinity,
-                fit: BoxFit.cover,
+            SizedBox(
+              height: 140,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: evidenceImages.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  return Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          evidenceImages[index],
+                          height: 140,
+                          width: 140,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: IconButton(
+                          onPressed: () {
+                            setState(() {
+                              evidenceImages.removeAt(index);
+                            });
+                          },
+                          icon: const Icon(Icons.close),
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ],
@@ -206,7 +233,7 @@ class _ActionPageState extends State<ActionPage> {
                   actionController.text.trim().isEmpty ||
                   responsibleController.text.trim().isEmpty ||
                   dueDate == null ||
-                  evidenceImage == null) {
+                  evidenceImages.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text(
@@ -216,8 +243,15 @@ class _ActionPageState extends State<ActionPage> {
                 );
                 return;
               }
-              final evidencePhotoPath =
-                  await StorageService.saveImagePermanently(evidenceImage!);
+              final evidencePhotoPaths = <String>[];
+
+              for (final evidenceImage in evidenceImages) {
+                final savedPath = await StorageService.saveImagePermanently(
+                  evidenceImage,
+                );
+
+                evidencePhotoPaths.add(savedPath);
+              }
               String actionData =
                   '''
 Hazard: ${hazardController.text}
@@ -226,7 +260,7 @@ Responsible: ${responsibleController.text}
 Priority: $priority
 Status: $status
 Due Date: ${dueDate?.toString().split(' ')[0] ?? "Not Set"}
-Evidence Photo: $evidencePhotoPath
+Evidence Photos: ${evidencePhotoPaths.join('|')}
 Date: ${DateTime.now()}
 ''';
 

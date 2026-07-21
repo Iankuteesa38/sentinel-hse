@@ -939,7 +939,7 @@ class PdfService {
     final reportNumber =
         'CAPA-${DateFormat('yyyyMMdd-HHmmss').format(DateTime.now())}';
 
-    final generatedDate = DateFormat('dd MMMM yyyy').format(DateTime.now());
+    final generatedDate = DateFormat('dd MMM yyyy').format(DateTime.now());
 
     final generatedTime = DateFormat('HH:mm').format(DateTime.now());
 
@@ -964,7 +964,7 @@ class PdfService {
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
+        margin: const pw.EdgeInsets.fromLTRB(32, 48, 32, 32),
         build: (context) {
           return [
             pw.Center(
