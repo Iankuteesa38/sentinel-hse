@@ -90,6 +90,144 @@ class _RiskAssessmentPageState extends State<RiskAssessmentPage> {
     );
   }
 
+  Color _structuredRiskColor(RiskRating rating) {
+    final likelihoodValue = switch (rating.likelihood.trim().toUpperCase()) {
+      'A' => 1,
+      'B' => 2,
+      'C' => 3,
+      'D' => 4,
+      'E' => 5,
+      _ => 0,
+    };
+
+    final score = rating.severity * likelihoodValue;
+
+    if (score <= 0) {
+      return Colors.grey;
+    }
+
+    if (score <= 4) {
+      return Colors.green;
+    }
+
+    if (score <= 9) {
+      return Colors.amber.shade800;
+    }
+
+    if (score <= 16) {
+      return Colors.orange.shade800;
+    }
+
+    return Colors.red;
+  }
+
+  Widget _structuredRiskBadge(String title, RiskRating rating) {
+    final color = _structuredRiskColor(rating);
+
+    return Chip(
+      label: Text('$title: ${rating.code}'),
+      backgroundColor: color.withValues(alpha: 0.12),
+      side: BorderSide(color: color.withValues(alpha: 0.40)),
+      labelStyle: TextStyle(color: color, fontWeight: FontWeight.bold),
+    );
+  }
+
+  Widget _structuredRiskEntryCard(RiskAssessmentEntry entry, int number) {
+    Widget detailSection(String title, Widget child) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 6),
+            child,
+          ],
+        ),
+      );
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 18),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            color: Colors.blue.shade50,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(child: Text(number.toString())),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    entry.hazard.trim().isEmpty
+                        ? 'Hazard not specified'
+                        : entry.hazard,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _structuredRiskBadge('Initial', entry.initialRating),
+                    _structuredRiskBadge('Residual', entry.residualRating),
+                  ],
+                ),
+                const SizedBox(height: 18),
+
+                detailSection('Causes / Threats', _bulletList(entry.causes)),
+                detailSection(
+                  'Top Event',
+                  Text(
+                    entry.topEvent.trim().isEmpty
+                        ? 'Not specified'
+                        : entry.topEvent,
+                    style: const TextStyle(fontSize: 16, height: 1.35),
+                  ),
+                ),
+                detailSection('Consequences', _bulletList(entry.consequences)),
+                detailSection(
+                  'Persons at Risk',
+                  _bulletList(entry.personsAtRisk),
+                ),
+                detailSection(
+                  'Preventive Controls',
+                  _bulletList(entry.preventiveControls),
+                ),
+                detailSection(
+                  'Mitigation / Recovery Measures',
+                  _bulletList(entry.mitigationMeasures),
+                ),
+                detailSection(
+                  'Recommended Actions',
+                  _bulletList(entry.recommendedActions),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _generateRiskAssessment() async {
     final taskDescription = taskController.text.trim();
 
@@ -196,95 +334,159 @@ class _RiskAssessmentPageState extends State<RiskAssessmentPage> {
                 ),
                 const SizedBox(height: 16),
 
-                RiskAssessmentCard(
-                  title: 'Task',
-                  icon: Icons.assignment_outlined,
-                  backgroundColor: Colors.blue.shade50,
-                  child: Text(
-                    result.task,
-                    style: const TextStyle(fontSize: 16, height: 1.35),
+                if (result.entries.isNotEmpty) ...[
+                  RiskAssessmentCard(
+                    title: 'Structured Risk Register',
+                    icon: Icons.assignment_outlined,
+                    backgroundColor: Colors.blue.shade50,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          result.task,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            height: 1.35,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${result.entries.length} hazards assessed individually',
+                          style: const TextStyle(fontSize: 15),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                RiskAssessmentCard(
-                  title: 'Hazards',
-                  icon: Icons.warning_amber_rounded,
-                  backgroundColor: Colors.amber.shade50,
-                  child: _bulletList(result.hazards),
-                ),
-                const SizedBox(height: 16),
+                  ...result.entries.asMap().entries.map(
+                    (item) =>
+                        _structuredRiskEntryCard(item.value, item.key + 1),
+                  ),
 
-                RiskAssessmentCard(
-                  title: 'Persons at Risk',
-                  icon: Icons.groups_outlined,
-                  backgroundColor: Colors.blueGrey.shade50,
-                  child: _bulletList(result.personsAtRisk),
-                ),
-                const SizedBox(height: 16),
+                  RiskAssessmentCard(
+                    title: 'Required PPE',
+                    icon: Icons.health_and_safety_outlined,
+                    backgroundColor: Colors.indigo.shade50,
+                    child: _bulletList(result.requiredPpe),
+                  ),
+                  const SizedBox(height: 16),
 
-                RiskAssessmentCard(
-                  title: 'Existing Controls',
-                  icon: Icons.shield_outlined,
-                  backgroundColor: Colors.green.shade50,
-                  child: _bulletList(result.existingControls),
-                ),
-                const SizedBox(height: 16),
+                  RiskAssessmentCard(
+                    title: 'Required Permits',
+                    icon: Icons.description_outlined,
+                    backgroundColor: Colors.purple.shade50,
+                    child: _bulletList(result.requiredPermits),
+                  ),
+                  const SizedBox(height: 16),
 
-                RiskAssessmentCard(
-                  title: 'Additional Controls',
-                  icon: Icons.add_task_outlined,
-                  backgroundColor: Colors.orange.shade50,
-                  child: _bulletList(result.additionalControls),
-                ),
-                const SizedBox(height: 16),
+                  RiskAssessmentCard(
+                    title: 'Emergency Response',
+                    icon: Icons.emergency_outlined,
+                    backgroundColor: Colors.red.shade50,
+                    child: _bulletList(result.emergencyResponse),
+                  ),
+                  const SizedBox(height: 16),
 
-                RiskAssessmentCard(
-                  title: 'Initial Risk',
-                  icon: Icons.trending_up,
-                  backgroundColor: Colors.red.shade50,
-                  child: _riskBadge(result.initialRisk),
-                ),
-                const SizedBox(height: 16),
+                  RiskAssessmentCard(
+                    title: 'Applicable Standards',
+                    icon: Icons.menu_book_outlined,
+                    backgroundColor: Colors.teal.shade50,
+                    child: _bulletList(result.applicableStandards),
+                  ),
+                ] else ...[
+                  RiskAssessmentCard(
+                    title: 'Task',
+                    icon: Icons.assignment_outlined,
+                    backgroundColor: Colors.blue.shade50,
+                    child: Text(
+                      result.task,
+                      style: const TextStyle(fontSize: 16, height: 1.35),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
-                RiskAssessmentCard(
-                  title: 'Residual Risk',
-                  icon: Icons.trending_down,
-                  backgroundColor: Colors.green.shade50,
-                  child: _riskBadge(result.residualRisk),
-                ),
-                const SizedBox(height: 16),
+                  RiskAssessmentCard(
+                    title: 'Hazards',
+                    icon: Icons.warning_amber_rounded,
+                    backgroundColor: Colors.amber.shade50,
+                    child: _bulletList(result.hazards),
+                  ),
+                  const SizedBox(height: 16),
 
-                RiskAssessmentCard(
-                  title: 'Required PPE',
-                  icon: Icons.health_and_safety_outlined,
-                  backgroundColor: Colors.indigo.shade50,
-                  child: _bulletList(result.requiredPpe),
-                ),
-                const SizedBox(height: 16),
+                  RiskAssessmentCard(
+                    title: 'Persons at Risk',
+                    icon: Icons.groups_outlined,
+                    backgroundColor: Colors.blueGrey.shade50,
+                    child: _bulletList(result.personsAtRisk),
+                  ),
+                  const SizedBox(height: 16),
 
-                RiskAssessmentCard(
-                  title: 'Required Permits',
-                  icon: Icons.description_outlined,
-                  backgroundColor: Colors.purple.shade50,
-                  child: _bulletList(result.requiredPermits),
-                ),
-                const SizedBox(height: 16),
+                  RiskAssessmentCard(
+                    title: 'Existing Controls',
+                    icon: Icons.shield_outlined,
+                    backgroundColor: Colors.green.shade50,
+                    child: _bulletList(result.existingControls),
+                  ),
+                  const SizedBox(height: 16),
 
-                RiskAssessmentCard(
-                  title: 'Emergency Response',
-                  icon: Icons.emergency_outlined,
-                  backgroundColor: Colors.red.shade50,
-                  child: _bulletList(result.emergencyResponse),
-                ),
-                const SizedBox(height: 16),
+                  RiskAssessmentCard(
+                    title: 'Additional Controls',
+                    icon: Icons.add_task_outlined,
+                    backgroundColor: Colors.orange.shade50,
+                    child: _bulletList(result.additionalControls),
+                  ),
+                  const SizedBox(height: 16),
 
-                RiskAssessmentCard(
-                  title: 'Applicable Standards',
-                  icon: Icons.menu_book_outlined,
-                  backgroundColor: Colors.teal.shade50,
-                  child: _bulletList(result.applicableStandards),
-                ),
+                  RiskAssessmentCard(
+                    title: 'Initial Risk',
+                    icon: Icons.trending_up,
+                    backgroundColor: Colors.red.shade50,
+                    child: _riskBadge(result.initialRisk),
+                  ),
+                  const SizedBox(height: 16),
+
+                  RiskAssessmentCard(
+                    title: 'Residual Risk',
+                    icon: Icons.trending_down,
+                    backgroundColor: Colors.green.shade50,
+                    child: _riskBadge(result.residualRisk),
+                  ),
+                  const SizedBox(height: 16),
+
+                  RiskAssessmentCard(
+                    title: 'Required PPE',
+                    icon: Icons.health_and_safety_outlined,
+                    backgroundColor: Colors.indigo.shade50,
+                    child: _bulletList(result.requiredPpe),
+                  ),
+                  const SizedBox(height: 16),
+
+                  RiskAssessmentCard(
+                    title: 'Required Permits',
+                    icon: Icons.description_outlined,
+                    backgroundColor: Colors.purple.shade50,
+                    child: _bulletList(result.requiredPermits),
+                  ),
+                  const SizedBox(height: 16),
+
+                  RiskAssessmentCard(
+                    title: 'Emergency Response',
+                    icon: Icons.emergency_outlined,
+                    backgroundColor: Colors.red.shade50,
+                    child: _bulletList(result.emergencyResponse),
+                  ),
+                  const SizedBox(height: 16),
+
+                  RiskAssessmentCard(
+                    title: 'Applicable Standards',
+                    icon: Icons.menu_book_outlined,
+                    backgroundColor: Colors.teal.shade50,
+                    child: _bulletList(result.applicableStandards),
+                  ),
+                ],
+
                 const SizedBox(height: 24),
               ],
             ],
