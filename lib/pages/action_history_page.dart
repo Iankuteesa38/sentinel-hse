@@ -194,6 +194,59 @@ class _ActionHistoryPageState extends State<ActionHistoryPage> {
     ).showSnackBar(const SnackBar(content: Text('CAPA record deleted')));
   }
 
+  Map<String, String> _parseActionFields(String action) {
+    final fields = <String, String>{};
+
+    for (final rawLine in action.split('\n')) {
+      final line = rawLine.trim();
+      final separatorIndex = line.indexOf(':');
+
+      if (separatorIndex <= 0) {
+        continue;
+      }
+
+      final key = line.substring(0, separatorIndex).trim();
+      final value = line.substring(separatorIndex + 1).trim();
+
+      if (value.isNotEmpty) {
+        fields[key] = value;
+      }
+    }
+
+    return fields;
+  }
+
+  String _formatActionDate(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Not specified';
+    }
+
+    final parsedDate = DateTime.tryParse(value.trim());
+
+    if (parsedDate == null) {
+      return value.trim();
+    }
+
+    const months = <String>[
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return '${parsedDate.day.toString().padLeft(2, '0')} '
+        '${months[parsedDate.month - 1]} '
+        '${parsedDate.year}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -255,13 +308,113 @@ class _ActionHistoryPageState extends State<ActionHistoryPage> {
                     itemCount: filteredActions.length,
                     itemBuilder: (context, index) {
                       final action = filteredActions[index];
+                      final fields = _parseActionFields(action);
 
+                      final actionRequired =
+                          fields['Action'] ??
+                          'Corrective action details not specified';
+
+                      final priority = fields['Priority'] ?? 'Not specified';
+                      final status = fields['Status'] ?? 'Open';
+                      final dueDateText = fields['Due Date'];
+
+                      final parsedDueDate = DateTime.tryParse(
+                        dueDateText ?? '',
+                      );
+
+                      final isClosed =
+                          status.toLowerCase() == 'closed' ||
+                          status.toLowerCase() == 'completed';
+
+                      final isOverdue =
+                          !isClosed &&
+                          parsedDueDate != null &&
+                          DateUtils.dateOnly(
+                            parsedDueDate,
+                          ).isBefore(DateUtils.dateOnly(DateTime.now()));
+                      final statusColor = isClosed
+                          ? Colors.green
+                          : isOverdue
+                          ? Colors.red
+                          : Colors.orange;
+
+                      final priorityColor = priority.toLowerCase() == 'high'
+                          ? Colors.red
+                          : priority.toLowerCase() == 'medium'
+                          ? Colors.orange
+                          : Colors.green;
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         child: ListTile(
                           leading: const Icon(Icons.assignment_turned_in),
                           title: Text('CAPA ${index + 1}'),
-                          subtitle: Text(action),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  actionRequired,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
+                                  children: [
+                                    Chip(
+                                      label: Text(status),
+                                      backgroundColor: statusColor.withValues(
+                                        alpha: 0.12,
+                                      ),
+                                      side: BorderSide(
+                                        color: statusColor.withValues(
+                                          alpha: 0.35,
+                                        ),
+                                      ),
+                                      labelStyle: TextStyle(
+                                        color: statusColor,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    Chip(
+                                      label: Text('Priority: $priority'),
+                                      backgroundColor: priorityColor.withValues(
+                                        alpha: 0.12,
+                                      ),
+                                      side: BorderSide(
+                                        color: priorityColor.withValues(
+                                          alpha: 0.35,
+                                        ),
+                                      ),
+                                      labelStyle: TextStyle(
+                                        color: priorityColor,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    if (isOverdue)
+                                      const Chip(
+                                        label: Text('Overdue'),
+                                        labelStyle: TextStyle(
+                                          color: Colors.red,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        backgroundColor: Color(0xFFFFEBEE),
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Due: ${_formatActionDate(dueDateText)}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
                           onTap: () {
                             Navigator.push(
                               context,
