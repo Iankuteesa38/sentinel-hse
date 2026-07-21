@@ -13,6 +13,17 @@ class ActionHistoryPage extends StatefulWidget {
 }
 
 class _ActionHistoryPageState extends State<ActionHistoryPage> {
+  List<int> get filteredActionIndexes {
+    final visibleActions = filteredActions;
+
+    return actions
+        .asMap()
+        .entries
+        .where((entry) => visibleActions.contains(entry.value))
+        .map((entry) => entry.key)
+        .toList();
+  }
+
   List<String> actions = [];
   List<String> get filteredActions {
     final today = DateUtils.dateOnly(DateTime.now());
@@ -263,7 +274,8 @@ class _ActionHistoryPageState extends State<ActionHistoryPage> {
                           trailing: PopupMenuButton<String>(
                             icon: const Icon(Icons.more_vert),
                             onSelected: (value) async {
-                              final originalIndex = actions.indexOf(action);
+                              final originalIndex =
+                                  filteredActionIndexes[index];
 
                               if (value == 'close') {
                                 await closeAction(originalIndex);
