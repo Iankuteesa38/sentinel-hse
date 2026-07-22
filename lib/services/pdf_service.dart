@@ -2433,7 +2433,14 @@ class PdfService {
 
   static Future<void> generateCapaReport({required String capaData}) async {
     final pdf = pw.Document();
-
+    final navy = PdfColor.fromInt(0xFF123B5D);
+    final blue = PdfColor.fromInt(0xFF1D6FA5);
+    final lightBlue = PdfColor.fromInt(0xFFEAF3F8);
+    final lightGrey = PdfColor.fromInt(0xFFF4F6F8);
+    final border = PdfColor.fromInt(0xFFB7C4CE);
+    final green = PdfColor.fromInt(0xFF2E8B57);
+    final orange = PdfColor.fromInt(0xFFE58C24);
+    final red = PdfColor.fromInt(0xFFC94C4C);
     final lines = capaData
         .split('\n')
         .map((line) => line.trim())
@@ -2572,6 +2579,42 @@ class PdfService {
       return value;
     }
 
+    String checklistComment(String item) {
+      final comment = hazardFields['$item Comment']?.trim() ?? '';
+
+      if (comment.isEmpty || comment.toLowerCase() == 'no comment') {
+        return 'No comment recorded';
+      }
+
+      return comment;
+    }
+
+    String findingStatus(String item) {
+      final savedStatus =
+          actionFields['Finding Status - $item']?.trim().toLowerCase() ?? '';
+
+      if (savedStatus == 'closed' || savedStatus == 'completed') {
+        return 'Closed';
+      }
+
+      return 'Open';
+    }
+
+    final nonCompliantItems = checklistItems.where((item) {
+      final storedStatus = hazardFields[item] ?? '';
+
+      return friendlyStatus(storedStatus) == 'Non-Compliant';
+    }).toList();
+
+    final findingSummary = nonCompliantItems.isEmpty
+        ? hazardDescriptions.isEmpty
+              ? 'No non-compliant source inspection findings were identified.'
+              : hazardDescriptions.join(' ')
+        : nonCompliantItems
+              .map((item) {
+                return '$item — ${checklistComment(item)}';
+              })
+              .join('\n');
     final reportNumber =
         'CAPA-${DateFormat('yyyyMMdd-HHmmss').format(DateTime.now())}';
 
@@ -2617,282 +2660,984 @@ class PdfService {
           includeTime: true,
         ),
     };
+    final immediateCorrection =
+        actionFields['Immediate Correction'] ??
+        actionFields['Correction'] ??
+        'To be completed by the responsible person.';
+
+    final rootCause =
+        actionFields['Root Cause'] ??
+        actionFields['Cause'] ??
+        'Root cause analysis is pending completion and verification.';
+
+    final preventiveAction =
+        actionFields['Preventive Action'] ??
+        actionFields['Preventive Actions'] ??
+        'Preventive action is to be defined after root cause review.';
+
+    final closureComments =
+        actionFields['Closure Comments'] ??
+        actionFields['Closure Remarks'] ??
+        'Pending closure verification.';
+
+    final completionDate = formatStoredDate(
+      actionFields['Completion Date'] ?? actionFields['Completed Date'],
+    );
+
+    final effectivenessReview =
+        actionFields['Effectiveness Review'] ??
+        actionFields['Effectiveness Check'] ??
+        'Effectiveness review is pending.';
+
+    final sourceInspector = hazardFields['Inspector']?.trim().isNotEmpty == true
+        ? hazardFields['Inspector']!.trim()
+        : 'Not specified';
+    PdfColor priorityColor(String value) {
+      final normalized = value.toLowerCase();
+
+      if (normalized.contains('critical') || normalized.contains('high')) {
+        return red;
+      }
+
+      if (normalized.contains('medium')) {
+        return orange;
+      }
+
+      if (normalized.contains('low')) {
+        return green;
+      }
+
+      return blue;
+    }
+
+    PdfColor capaStatusColor(String value) {
+      final normalized = value.toLowerCase();
+
+      if (normalized.contains('closed') || normalized.contains('completed')) {
+        return green;
+      }
+
+      if (normalized.contains('overdue')) {
+        return red;
+      }
+
+      if (normalized.contains('open') || normalized.contains('progress')) {
+        return orange;
+      }
+
+      return blue;
+    }
+
+    pw.Widget smallHeaderLine(String label, String value) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 3),
+        child: pw.RichText(
+          text: pw.TextSpan(
+            style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.black),
+            children: [
+              pw.TextSpan(
+                text: '$label: ',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+              pw.TextSpan(
+                text: value.trim().isEmpty ? 'Not specified' : value.trim(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    pw.Widget informationLabel(String text) {
+      return pw.Container(
+        color: lightGrey,
+        padding: const pw.EdgeInsets.all(6),
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+    }
+
+    pw.Widget informationValue(String text) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.all(6),
+        child: pw.Text(
+          text.trim().isEmpty ? 'Not specified' : text.trim(),
+          style: const pw.TextStyle(fontSize: 7),
+        ),
+      );
+    }
+
+    pw.Widget sectionHeading(String title) {
+      return pw.Container(
+        width: double.infinity,
+        padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        color: navy,
+        child: pw.Text(
+          title,
+          style: pw.TextStyle(
+            color: PdfColors.white,
+            fontSize: 9,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+      );
+    }
+
+    pw.Widget summaryCard({
+      required String label,
+      required String value,
+      required PdfColor color,
+    }) {
+      return pw.Container(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 7),
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: color, width: 0.8),
+          borderRadius: pw.BorderRadius.circular(3),
+        ),
+        child: pw.Row(
+          children: [
+            pw.Container(width: 6, height: 26, color: color),
+            pw.SizedBox(width: 7),
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    value.trim().isEmpty ? 'N/A' : value,
+                    style: pw.TextStyle(
+                      color: color,
+                      fontSize: 10,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.Text(label, style: const pw.TextStyle(fontSize: 6)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget detailBox({
+      required String title,
+      required String value,
+      required PdfColor accent,
+    }) {
+      return pw.Container(
+        width: double.infinity,
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: border, width: 0.7),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Container(
+              width: double.infinity,
+              color: lightBlue,
+              padding: const pw.EdgeInsets.symmetric(
+                horizontal: 7,
+                vertical: 5,
+              ),
+              child: pw.Text(
+                title,
+                style: pw.TextStyle(
+                  color: accent,
+                  fontSize: 8,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
+                value.trim().isEmpty ? 'Not specified' : value,
+                style: const pw.TextStyle(fontSize: 8, lineSpacing: 2),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget reportHeader() {
+      return pw.Container(
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: navy, width: 1.2),
+        ),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Expanded(
+              flex: 2,
+              child: pw.Container(
+                color: navy,
+                padding: const pw.EdgeInsets.all(10),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'SENTINEL HSE AI',
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 17,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(height: 3),
+                    pw.Text(
+                      'Intelligent Safety Management',
+                      style: const pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 7,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            pw.Expanded(
+              flex: 4,
+              child: pw.Container(
+                padding: const pw.EdgeInsets.all(10),
+                alignment: pw.Alignment.center,
+                child: pw.Column(
+                  children: [
+                    pw.Text(
+                      'CORRECTIVE AND PREVENTIVE ACTION REPORT',
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        color: navy,
+                        fontSize: 15,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(height: 3),
+                    pw.Text(
+                      'Finding, Root Cause, Action Tracking, Verification and Closure',
+                      textAlign: pw.TextAlign.center,
+                      style: const pw.TextStyle(fontSize: 7.5),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            pw.Expanded(
+              flex: 2,
+              child: pw.Container(
+                color: lightBlue,
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    smallHeaderLine('CAPA No.', reportNumber),
+                    smallHeaderLine(
+                      'Generated',
+                      '$generatedDate, $generatedTime',
+                    ),
+                    smallHeaderLine('Revision', 'Rev. 0'),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget continuationHeader() {
+      return pw.Container(
+        margin: const pw.EdgeInsets.only(bottom: 7),
+        padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+        decoration: pw.BoxDecoration(
+          border: pw.Border(bottom: pw.BorderSide(color: navy, width: 0.8)),
+        ),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              'SENTINEL HSE AI — CORRECTIVE AND PREVENTIVE ACTION',
+              style: pw.TextStyle(
+                color: navy,
+                fontSize: 7,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.Text(reportNumber, style: const pw.TextStyle(fontSize: 6.5)),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget footer(pw.Context context) {
+      return pw.Container(
+        margin: const pw.EdgeInsets.only(top: 7),
+        padding: const pw.EdgeInsets.only(top: 4),
+        decoration: pw.BoxDecoration(
+          border: pw.Border(top: pw.BorderSide(color: border, width: 0.6)),
+        ),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              'Sentinel HSE AI | $reportNumber | Rev. 0',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+            pw.Text(
+              'Page ${context.pageNumber} of ${context.pagesCount}',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget photoCard({
+      required pw.MemoryImage image,
+      required String label,
+    }) {
+      return pw.Container(
+        width: double.infinity,
+        padding: const pw.EdgeInsets.all(8),
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: border, width: 0.7),
+          borderRadius: pw.BorderRadius.circular(4),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(
+              label,
+              style: pw.TextStyle(
+                color: navy,
+                fontSize: 8,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 6),
+            pw.Container(
+              width: double.infinity,
+              height: 220,
+              alignment: pw.Alignment.center,
+              child: pw.Image(image, fit: pw.BoxFit.contain),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget signOffHeader(String text) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.all(5),
+        child: pw.Text(
+          text,
+          textAlign: pw.TextAlign.center,
+          style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+    }
+
+    pw.Widget signOffCell({String name = ''}) {
+      return pw.Container(
+        height: 60,
+        padding: const pw.EdgeInsets.all(6),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          mainAxisAlignment: pw.MainAxisAlignment.end,
+          children: [
+            pw.Text(
+              'Name: ${name.trim().isEmpty ? '______________________________' : name}',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+            pw.SizedBox(height: 5),
+            pw.Text(
+              'Signature: __________________________',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+            pw.SizedBox(height: 5),
+            pw.Text(
+              'Date: _______________________________',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+          ],
+        ),
+      );
+    }
 
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.fromLTRB(32, 48, 32, 32),
-        build: (context) {
-          return [
-            pw.Center(
-              child: pw.Text(
-                'SENTINEL HSE AI',
-                style: pw.TextStyle(
-                  fontSize: 24,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ),
-            pw.SizedBox(height: 8),
-            pw.Center(
-              child: pw.Text(
-                'Corrective Action / CAPA Report',
-                style: pw.TextStyle(
-                  fontSize: 18,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ),
-            pw.SizedBox(height: 8),
-            pw.Center(
-              child: pw.Text(
-                'Report Number: $reportNumber',
-                style: const pw.TextStyle(fontSize: 11),
-              ),
-            ),
-            pw.SizedBox(height: 24),
+        margin: const pw.EdgeInsets.fromLTRB(28, 42, 28, 28),
+        header: (context) {
+          if (context.pageNumber == 1) {
+            return pw.SizedBox();
+          }
 
-            pw.Table(
-              border: pw.TableBorder.all(color: PdfColors.grey400),
-              columnWidths: const {
-                0: pw.FlexColumnWidth(1.3),
-                1: pw.FlexColumnWidth(2.7),
-              },
-              children: [
-                _reportRow('Generated Date', generatedDate),
-                _reportRow('Generated Time', generatedTime),
-                _reportRow('Status', status),
-                _reportRow('Priority', priority),
-                _reportRow('Due Date', dueDate),
-                _reportRow('Responsible Person', responsible),
-                _reportRow('Created', createdDate),
-              ],
-            ),
+          return continuationHeader();
+        },
+        footer: footer,
+        build: (context) => [
+          reportHeader(),
+          pw.SizedBox(height: 10),
 
-            if (sourceFields.isNotEmpty) ...[
-              pw.SizedBox(height: 24),
-              pw.Text(
-                'Source Inspection',
-                style: pw.TextStyle(
-                  fontSize: 16,
-                  fontWeight: pw.FontWeight.bold,
+          pw.Row(
+            children: [
+              pw.Expanded(
+                child: summaryCard(
+                  label: 'Current Status',
+                  value: status,
+                  color: capaStatusColor(status),
                 ),
               ),
-              pw.SizedBox(height: 10),
-              pw.Table(
-                border: pw.TableBorder.all(color: PdfColors.grey400),
-                columnWidths: const {
-                  0: pw.FlexColumnWidth(1.3),
-                  1: pw.FlexColumnWidth(2.7),
-                },
-                children: sourceFields.entries
-                    .map((entry) => _reportRow(entry.key, entry.value))
-                    .toList(),
+              pw.SizedBox(width: 6),
+              pw.Expanded(
+                child: summaryCard(
+                  label: 'Priority',
+                  value: priority,
+                  color: priorityColor(priority),
+                ),
+              ),
+              pw.SizedBox(width: 6),
+              pw.Expanded(
+                child: summaryCard(
+                  label: 'Responsible Person',
+                  value: responsible,
+                  color: blue,
+                ),
+              ),
+              pw.SizedBox(width: 6),
+              pw.Expanded(
+                child: summaryCard(
+                  label: 'Target Due Date',
+                  value: dueDate,
+                  color: orange,
+                ),
               ),
             ],
+          ),
 
-            pw.SizedBox(height: 24),
-            pw.Text(
-              'Hazard Description',
-              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 10),
-            pw.Container(
-              width: double.infinity,
-              padding: const pw.EdgeInsets.all(14),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: PdfColors.grey400),
-                borderRadius: pw.BorderRadius.circular(6),
-              ),
-              child: pw.Text(
-                hazardDescriptions.isEmpty
-                    ? 'Not specified'
-                    : hazardDescriptions.join('\n'),
-                style: const pw.TextStyle(fontSize: 11, lineSpacing: 4),
-              ),
-            ),
+          pw.SizedBox(height: 12),
+          sectionHeading('1. CAPA Control Information'),
+          pw.SizedBox(height: 6),
 
-            if (checklistEntries.isNotEmpty) ...[
-              pw.SizedBox(height: 24),
-              pw.Text(
-                'Inspection Checklist',
-                style: pw.TextStyle(
-                  fontSize: 16,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 10),
-              pw.Table(
-                border: pw.TableBorder.all(color: PdfColors.grey400),
-                columnWidths: const {
-                  0: pw.FlexColumnWidth(3),
-                  1: pw.FlexColumnWidth(1.5),
-                },
+          pw.Table(
+            border: pw.TableBorder.all(color: border, width: 0.7),
+            columnWidths: const {
+              0: pw.FixedColumnWidth(82),
+              1: pw.FlexColumnWidth(2),
+              2: pw.FixedColumnWidth(82),
+              3: pw.FlexColumnWidth(2),
+            },
+            children: [
+              pw.TableRow(
                 children: [
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(
-                      color: PdfColors.grey200,
-                    ),
-                    children: [
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(9),
-                        child: pw.Text(
-                          'Checklist Item',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(9),
-                        child: pw.Text(
-                          'Status',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                  ...checklistEntries.map((entry) {
-                    final displayStatus = friendlyStatus(entry.value);
-
-                    final statusColor = displayStatus == 'Compliant'
-                        ? PdfColors.green
-                        : displayStatus == 'Non-Compliant'
-                        ? PdfColors.red
-                        : PdfColors.grey700;
-
-                    return pw.TableRow(
-                      children: [
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(9),
-                          child: pw.Text(
-                            entry.key,
-                            style: const pw.TextStyle(fontSize: 10),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(9),
-                          child: pw.Text(
-                            displayStatus,
-                            style: pw.TextStyle(
-                              fontSize: 10,
-                              fontWeight: pw.FontWeight.bold,
-                              color: statusColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  }),
+                  informationLabel('CAPA Number'),
+                  informationValue(reportNumber),
+                  informationLabel('Revision'),
+                  informationValue('Rev. 0'),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Created'),
+                  informationValue(createdDate),
+                  informationLabel('Generated'),
+                  informationValue('$generatedDate, $generatedTime'),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Status'),
+                  informationValue(status),
+                  informationLabel('Priority'),
+                  informationValue(priority),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Responsible Person'),
+                  informationValue(responsible),
+                  informationLabel('Due Date'),
+                  informationValue(dueDate),
                 ],
               ),
             ],
+          ),
 
-            pw.SizedBox(height: 24),
-            pw.Text(
-              'Corrective Action Required',
-              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+          if (sourceFields.isNotEmpty) ...[
+            pw.SizedBox(height: 12),
+            sectionHeading('2. Source Inspection Information'),
+            pw.SizedBox(height: 6),
+
+            pw.Table(
+              border: pw.TableBorder.all(color: border, width: 0.7),
+              columnWidths: const {
+                0: pw.FixedColumnWidth(110),
+                1: pw.FlexColumnWidth(),
+              },
+              children: sourceFields.entries.map((entry) {
+                return pw.TableRow(
+                  children: [
+                    informationLabel(entry.key),
+                    informationValue(entry.value),
+                  ],
+                );
+              }).toList(),
             ),
-            pw.SizedBox(height: 10),
-            pw.Container(
-              width: double.infinity,
-              padding: const pw.EdgeInsets.all(14),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: PdfColors.grey400),
-                borderRadius: pw.BorderRadius.circular(6),
+          ],
+
+          pw.SizedBox(height: 12),
+          sectionHeading('3. Source Inspection Checklist'),
+          pw.SizedBox(height: 6),
+
+          pw.Table(
+            border: pw.TableBorder.all(color: border, width: 0.7),
+            columnWidths: const {
+              0: pw.FixedColumnWidth(25),
+              1: pw.FlexColumnWidth(2.2),
+              2: pw.FlexColumnWidth(1.3),
+              3: pw.FlexColumnWidth(3),
+            },
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: blue),
+                children:
+                    [
+                      'No.',
+                      'Checklist Item',
+                      'Status',
+                      'Comment / Observation',
+                    ].map((heading) {
+                      return pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(
+                          heading,
+                          textAlign: heading == 'No.'
+                              ? pw.TextAlign.center
+                              : pw.TextAlign.left,
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 6.5,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                      );
+                    }).toList(),
               ),
-              child: pw.Text(
-                actionRequired,
-                style: const pw.TextStyle(fontSize: 11, lineSpacing: 4),
+              ...checklistEntries.asMap().entries.map((entry) {
+                final item = entry.value.key;
+                final displayStatus = friendlyStatus(entry.value.value);
+
+                final statusColor = displayStatus == 'Compliant'
+                    ? green
+                    : displayStatus == 'Non-Compliant'
+                    ? red
+                    : PdfColors.grey700;
+
+                final statusBackground = displayStatus == 'Compliant'
+                    ? PdfColor.fromInt(0xFFEAF7EF)
+                    : displayStatus == 'Non-Compliant'
+                    ? PdfColor.fromInt(0xFFFBECEC)
+                    : lightGrey;
+
+                return pw.TableRow(
+                  children: [
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(5),
+                      child: pw.Text(
+                        '${entry.key + 1}',
+                        textAlign: pw.TextAlign.center,
+                        style: const pw.TextStyle(fontSize: 6.5),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(5),
+                      child: pw.Text(
+                        item,
+                        style: const pw.TextStyle(fontSize: 6.5),
+                      ),
+                    ),
+                    pw.Container(
+                      color: statusBackground,
+                      padding: const pw.EdgeInsets.all(5),
+                      child: pw.Text(
+                        displayStatus,
+                        textAlign: pw.TextAlign.center,
+                        style: pw.TextStyle(
+                          fontSize: 6.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: statusColor,
+                        ),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(5),
+                      child: pw.Text(
+                        checklistComment(item),
+                        style: const pw.TextStyle(fontSize: 6.5),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ],
+          ),
+
+          pw.SizedBox(height: 12),
+          sectionHeading('4. Non-Conformity and Finding Register'),
+          pw.SizedBox(height: 6),
+
+          detailBox(
+            title: 'Finding Summary',
+            value: findingSummary,
+            accent: nonCompliantItems.isEmpty ? green : red,
+          ),
+
+          pw.SizedBox(height: 8),
+
+          pw.Table(
+            border: pw.TableBorder.all(color: border, width: 0.7),
+            columnWidths: const {
+              0: pw.FixedColumnWidth(28),
+              1: pw.FlexColumnWidth(2.2),
+              2: pw.FlexColumnWidth(3.5),
+              3: pw.FlexColumnWidth(1.3),
+            },
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: blue),
+                children:
+                    [
+                      'No.',
+                      'Non-Conforming Item',
+                      'Observation / Evidence',
+                      'Status',
+                    ].map((heading) {
+                      return pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(
+                          heading,
+                          textAlign: heading == 'No.'
+                              ? pw.TextAlign.center
+                              : pw.TextAlign.left,
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 6.5,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                      );
+                    }).toList(),
               ),
-            ),
+              if (nonCompliantItems.isEmpty)
+                pw.TableRow(
+                  children: [
+                    informationValue('1'),
+                    informationValue('No non-compliant item recorded'),
+                    informationValue(
+                      hazardDescriptions.isEmpty
+                          ? 'No finding description was supplied.'
+                          : hazardDescriptions.join(' '),
+                    ),
+                    informationValue('Review'),
+                  ],
+                )
+              else
+                ...nonCompliantItems.asMap().entries.map((entry) {
+                  final item = entry.value;
+                  final itemStatus = findingStatus(item);
+                  return pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(
+                          '${entry.key + 1}',
+                          textAlign: pw.TextAlign.center,
+                          style: const pw.TextStyle(fontSize: 6.5),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(
+                          item,
+                          style: const pw.TextStyle(fontSize: 6.5),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(
+                          checklistComment(item),
+                          style: const pw.TextStyle(fontSize: 6.5),
+                        ),
+                      ),
+                      pw.Container(
+                        color: itemStatus == 'Closed'
+                            ? PdfColor.fromInt(0xFFEAF7EF)
+                            : PdfColor.fromInt(0xFFFBECEC),
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(
+                          itemStatus,
+                          textAlign: pw.TextAlign.center,
+                          style: pw.TextStyle(
+                            fontSize: 6.5,
+                            fontWeight: pw.FontWeight.bold,
+                            color: itemStatus == 'Closed' ? green : red,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+            ],
+          ),
+
+          pw.SizedBox(height: 12),
+          sectionHeading('5. Corrective and Preventive Action Plan'),
+          pw.SizedBox(height: 6),
+
+          detailBox(
+            title: 'Immediate Correction / Containment',
+            value: immediateCorrection,
+            accent: orange,
+          ),
+          pw.SizedBox(height: 7),
+
+          detailBox(
+            title: 'Root Cause Analysis',
+            value: rootCause,
+            accent: red,
+          ),
+          pw.SizedBox(height: 7),
+
+          detailBox(
+            title: 'Corrective Action',
+            value: actionRequired,
+            accent: blue,
+          ),
+          pw.SizedBox(height: 7),
+
+          detailBox(
+            title: 'Preventive Action',
+            value: preventiveAction,
+            accent: green,
+          ),
+
+          pw.SizedBox(height: 8),
+
+          pw.Table(
+            border: pw.TableBorder.all(color: border, width: 0.7),
+            columnWidths: const {
+              0: pw.FlexColumnWidth(1.6),
+              1: pw.FlexColumnWidth(2.2),
+              2: pw.FlexColumnWidth(1.5),
+              3: pw.FlexColumnWidth(1.3),
+              4: pw.FlexColumnWidth(1.2),
+            },
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: blue),
+                children:
+                    [
+                      'Action Type',
+                      'Responsible Person',
+                      'Target Date',
+                      'Completion Date',
+                      'Status',
+                    ].map((heading) {
+                      return pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(
+                          heading,
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 6.5,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+              ),
+              pw.TableRow(
+                children: [
+                  informationValue('Corrective / Preventive'),
+                  informationValue(responsible),
+                  informationValue(dueDate),
+                  informationValue(completionDate),
+                  pw.Container(
+                    color: capaStatusColor(status),
+                    padding: const pw.EdgeInsets.all(6),
+                    child: pw.Text(
+                      status,
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 7,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          if (inspectionPhotos.isNotEmpty || evidencePhotos.isNotEmpty) ...[
+            pw.NewPage(),
+            sectionHeading('6. Photographic Evidence'),
+            pw.SizedBox(height: 8),
 
             if (inspectionPhotos.isNotEmpty) ...[
-              pw.SizedBox(height: 24),
               pw.Text(
-                'Source Inspection Photos',
+                'Source Inspection Evidence',
                 style: pw.TextStyle(
-                  fontSize: 16,
+                  color: navy,
+                  fontSize: 9,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
-              pw.SizedBox(height: 10),
+              pw.SizedBox(height: 7),
 
               for (int index = 0; index < inspectionPhotos.length; index++) ...[
-                pw.Text(
-                  'Photo ${index + 1} of ${inspectionPhotos.length}',
-                  style: pw.TextStyle(
-                    fontSize: 12,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
+                photoCard(
+                  image: inspectionPhotos[index],
+                  label:
+                      'Source Inspection Photo ${index + 1} of ${inspectionPhotos.length}',
                 ),
-                pw.SizedBox(height: 6),
-                pw.Container(
-                  width: double.infinity,
-                  height: 250,
-                  alignment: pw.Alignment.center,
-                  child: pw.Image(
-                    inspectionPhotos[index],
-                    fit: pw.BoxFit.contain,
-                  ),
-                ),
-                pw.SizedBox(height: 18),
+                pw.SizedBox(height: 12),
               ],
             ],
 
             if (evidencePhotos.isNotEmpty) ...[
-              pw.SizedBox(height: 24),
               pw.Text(
-                'Corrective Action Evidence',
+                'Corrective Action Completion Evidence',
                 style: pw.TextStyle(
-                  fontSize: 16,
+                  color: navy,
+                  fontSize: 9,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
-              pw.SizedBox(height: 10),
+              pw.SizedBox(height: 7),
 
               for (int index = 0; index < evidencePhotos.length; index++) ...[
-                pw.Text(
-                  'Evidence ${index + 1} of ${evidencePhotos.length}',
-                  style: pw.TextStyle(
-                    fontSize: 12,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
+                photoCard(
+                  image: evidencePhotos[index],
+                  label:
+                      'Corrective Action Evidence ${index + 1} of ${evidencePhotos.length}',
                 ),
-                pw.SizedBox(height: 6),
-                pw.Container(
-                  width: double.infinity,
-                  height: 250,
-                  alignment: pw.Alignment.center,
-                  child: pw.Image(
-                    evidencePhotos[index],
-                    fit: pw.BoxFit.contain,
-                  ),
-                ),
-                pw.SizedBox(height: 18),
+                pw.SizedBox(height: 12),
               ],
             ],
+          ],
 
-            pw.SizedBox(height: 30),
-            pw.Text(
-              'Responsible Person Signature',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 30),
-            pw.Container(
-              width: 220,
-              decoration: const pw.BoxDecoration(
-                border: pw.Border(
-                  bottom: pw.BorderSide(color: PdfColors.black),
-                ),
+          pw.NewPage(),
+          sectionHeading('7. Closure Verification and Effectiveness Review'),
+          pw.SizedBox(height: 7),
+
+          detailBox(
+            title: 'Closure Comments / Verification Remarks',
+            value: closureComments,
+            accent: blue,
+          ),
+          pw.SizedBox(height: 7),
+
+          detailBox(
+            title: 'Effectiveness Review',
+            value: effectivenessReview,
+            accent: green,
+          ),
+
+          pw.SizedBox(height: 8),
+
+          pw.Table(
+            border: pw.TableBorder.all(color: border, width: 0.7),
+            columnWidths: const {
+              0: pw.FixedColumnWidth(105),
+              1: pw.FlexColumnWidth(),
+            },
+            children: [
+              pw.TableRow(
+                children: [
+                  informationLabel('Completion Date'),
+                  informationValue(completionDate),
+                ],
               ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Closure Status'),
+                  informationValue(status),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Closure Decision'),
+                  informationValue(
+                    status.toLowerCase().contains('closed') ||
+                            status.toLowerCase().contains('completed')
+                        ? 'Closure recorded — verify effectiveness before final approval.'
+                        : 'CAPA remains open pending completion, evidence review and effectiveness verification.',
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          pw.SizedBox(height: 10),
+
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(8),
+            decoration: pw.BoxDecoration(
+              color: PdfColor.fromInt(0xFFFFF4E5),
+              border: pw.Border.all(color: orange, width: 0.8),
             ),
-          ];
-        },
+            child: pw.Text(
+              'CAPA Closure Requirement: Corrective and preventive actions must address the documented findings and verified root causes. The CAPA must not be formally closed until objective evidence has been reviewed, implementation has been confirmed, and an effectiveness check demonstrates that recurrence risk has been adequately controlled.',
+              style: const pw.TextStyle(fontSize: 7),
+            ),
+          ),
+
+          pw.SizedBox(height: 12),
+
+          pw.Table(
+            border: pw.TableBorder.all(color: border, width: 0.7),
+            columnWidths: const {
+              0: pw.FlexColumnWidth(),
+              1: pw.FlexColumnWidth(),
+              2: pw.FlexColumnWidth(),
+            },
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: lightGrey),
+                children: [
+                  signOffHeader('Raised / Prepared By'),
+                  signOffHeader('Action Owner'),
+                  signOffHeader('Verified / Approved By'),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  signOffCell(
+                    name: sourceInspector == 'Not specified'
+                        ? ''
+                        : sourceInspector,
+                  ),
+                  signOffCell(
+                    name: responsible == 'Not specified' ? '' : responsible,
+                  ),
+                  signOffCell(),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
     );
 
-    await Printing.layoutPdf(
-      name: 'Sentinel_HSE_CAPA_$reportNumber.pdf',
-      onLayout: (format) async => pdf.save(),
+    await Printing.sharePdf(
+      bytes: await pdf.save(),
+      filename: 'Sentinel_HSE_$reportNumber.pdf',
     );
   }
 

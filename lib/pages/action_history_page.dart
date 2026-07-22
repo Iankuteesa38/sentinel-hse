@@ -124,25 +124,187 @@ class _ActionHistoryPageState extends State<ActionHistoryPage> {
   Future<void> closeAction(int index) async {
     final updatedActions = List<String>.from(actions);
     final currentAction = updatedActions[index];
+    final lines = currentAction.split('\n');
 
-    if (currentAction.toLowerCase().contains('status: closed') ||
-        currentAction.toLowerCase().contains('status: completed')) {
+    const checklistItems = <String>[
+      'Housekeeping',
+      'PPE Compliance',
+      'Fire Extinguishers',
+      'Emergency Exit',
+      'Working at Height',
+      'Scaffolding',
+      'Access and Egress',
+      'Barricades and Signage',
+      'Excavation Safety',
+      'Lifting Operations',
+      'Electrical Safety',
+      'Hot Work',
+      'Tools and Equipment',
+      'First Aid Facilities',
+      'Chemical Storage',
+      'Environmental Controls',
+      'Vehicle Movement',
+      'Welfare Facilities',
+    ];
+
+    final findingStatuses = <String, bool>{};
+
+    for (final item in checklistItems) {
+      final checklistLine = lines.firstWhere(
+        (line) =>
+            line.trim().toLowerCase().startsWith('${item.toLowerCase()}:'),
+        orElse: () => '',
+      );
+
+      if (checklistLine.isEmpty) {
+        continue;
+      }
+
+      final separatorIndex = checklistLine.indexOf(':');
+
+      if (separatorIndex < 0) {
+        continue;
+      }
+
+      final checklistStatus = checklistLine
+          .substring(separatorIndex + 1)
+          .trim()
+          .toLowerCase();
+
+      final isNonCompliant =
+          checklistStatus == 'false' ||
+          checklistStatus == 'non-compliant' ||
+          checklistStatus == 'not compliant';
+
+      if (!isNonCompliant) {
+        continue;
+      }
+
+      final savedFindingLine = lines.firstWhere(
+        (line) => line.trim().toLowerCase().startsWith(
+          'finding status - ${item.toLowerCase()}:',
+        ),
+        orElse: () => '',
+      );
+
+      findingStatuses[item] = savedFindingLine.toLowerCase().contains(
+        ': closed',
+      );
+    }
+
+    if (findingStatuses.isEmpty) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No non-compliant findings were found in this CAPA.'),
+        ),
+      );
+
       return;
     }
 
-    if (currentAction.contains('Status: Open')) {
-      updatedActions[index] = currentAction.replaceFirst(
-        'Status: Open',
-        'Status: Closed',
-      );
-    } else if (currentAction.contains('status: Open')) {
-      updatedActions[index] = currentAction.replaceFirst(
-        'status: Open',
-        'status: Closed',
-      );
-    } else {
-      updatedActions[index] = '$currentAction\nStatus: Closed';
+    final selectedStatuses = Map<String, bool>.from(findingStatuses);
+
+    final result = await showDialog<Map<String, bool>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Update Finding Status'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Mark each finding Closed only after the corrective action and supporting evidence have been verified.',
+                      ),
+                      const SizedBox(height: 12),
+
+                      ...selectedStatuses.entries.map((entry) {
+                        return CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(entry.key),
+                          subtitle: Text(entry.value ? 'Closed' : 'Open'),
+                          value: entry.value,
+                          activeColor: Colors.green,
+                          onChanged: (value) {
+                            setDialogState(() {
+                              selectedStatuses[entry.key] = value ?? false;
+                            });
+                          },
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext);
+                  },
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(
+                      dialogContext,
+                      Map<String, bool>.from(selectedStatuses),
+                    );
+                  },
+                  child: const Text('Save Status'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == null) {
+      return;
     }
+
+    lines.removeWhere(
+      (line) => line.trim().toLowerCase().startsWith('finding status - '),
+    );
+
+    for (final entry in result.entries) {
+      lines.add(
+        'Finding Status - ${entry.key}: '
+        '${entry.value ? 'Closed' : 'Open'}',
+      );
+    }
+
+    final allFindingsClosed = result.values.every((isClosed) => isClosed);
+
+    final statusIndex = lines.lastIndexWhere(
+      (line) => line.trim().toLowerCase().startsWith('status:'),
+    );
+
+    final overallStatus = allFindingsClosed ? 'Closed' : 'Open';
+
+    if (statusIndex >= 0) {
+      lines[statusIndex] = 'Status: $overallStatus';
+    } else {
+      lines.add('Status: $overallStatus');
+    }
+
+    lines.removeWhere(
+      (line) => line.trim().toLowerCase().startsWith('completion date:'),
+    );
+
+    if (allFindingsClosed) {
+      lines.add('Completion Date: ${DateTime.now().toIso8601String()}');
+    }
+
+    updatedActions[index] = lines.join('\n');
 
     await StorageService.saveActions(updatedActions);
 
@@ -151,6 +313,16 @@ class _ActionHistoryPageState extends State<ActionHistoryPage> {
     setState(() {
       actions = updatedActions;
     });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          allFindingsClosed
+              ? 'All findings closed and CAPA completed.'
+              : 'Finding statuses saved. CAPA remains open.',
+        ),
+      ),
+    );
   }
 
   Future<void> deleteAction(int index) async {
