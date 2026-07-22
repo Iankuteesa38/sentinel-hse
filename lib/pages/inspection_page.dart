@@ -18,6 +18,26 @@ class _InspectionPageState extends State<InspectionPage> {
   final TextEditingController projectController = TextEditingController();
   final TextEditingController locationController = TextEditingController();
   final TextEditingController inspectorController = TextEditingController();
+  final Map<String, TextEditingController> _commentControllers = {
+    'Housekeeping': TextEditingController(),
+    'PPE Compliance': TextEditingController(),
+    'Fire Extinguishers': TextEditingController(),
+    'Emergency Exit': TextEditingController(),
+    'Working at Height': TextEditingController(),
+    'Scaffolding': TextEditingController(),
+    'Access and Egress': TextEditingController(),
+    'Barricades and Signage': TextEditingController(),
+    'Excavation Safety': TextEditingController(),
+    'Lifting Operations': TextEditingController(),
+    'Electrical Safety': TextEditingController(),
+    'Hot Work': TextEditingController(),
+    'Tools and Equipment': TextEditingController(),
+    'First Aid Facilities': TextEditingController(),
+    'Chemical Storage': TextEditingController(),
+    'Environmental Controls': TextEditingController(),
+    'Vehicle Movement': TextEditingController(),
+    'Welfare Facilities': TextEditingController(),
+  };
   final List<File> _inspectionImages = [];
   InspectionStatus housekeeping = InspectionStatus.notApplicable;
   InspectionStatus ppe = InspectionStatus.notApplicable;
@@ -91,6 +111,16 @@ class _InspectionPageState extends State<InspectionPage> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _commentControllers[title],
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Comment / Observation',
+                hintText: 'Enter inspection findings or remarks',
+                border: OutlineInputBorder(),
+              ),
+            ),
           ],
         ),
       ),
@@ -108,6 +138,16 @@ class _InspectionPageState extends State<InspectionPage> {
       case InspectionStatus.notApplicable:
         return 'Not Applicable';
     }
+  }
+
+  String _inspectionComment(String item) {
+    final comment = _commentControllers[item]?.text.trim() ?? '';
+
+    if (comment.isEmpty) {
+      return 'No comment';
+    }
+
+    return comment.replaceAll('\n', ' ');
   }
 
   String _generateInspectionData() {
@@ -129,23 +169,41 @@ Location: $location
 Inspector: $inspector
 Date: ${DateTime.now()}
 Housekeeping: ${_inspectionStatusText(housekeeping)}
+Housekeeping Comment: ${_inspectionComment('Housekeeping')}
 PPE Compliance: ${_inspectionStatusText(ppe)}
+PPE Compliance Comment: ${_inspectionComment('PPE Compliance')}
 Fire Extinguishers: ${_inspectionStatusText(fire)}
+Fire Extinguishers Comment: ${_inspectionComment('Fire Extinguishers')}
 Emergency Exit: ${_inspectionStatusText(emergencyExit)}
+Emergency Exit Comment: ${_inspectionComment('Emergency Exit')}
 Working at Height: ${_inspectionStatusText(workingAtHeight)}
+Working at Height Comment: ${_inspectionComment('Working at Height')}
 Scaffolding: ${_inspectionStatusText(scaffolding)}
+Scaffolding Comment: ${_inspectionComment('Scaffolding')}
 Access and Egress: ${_inspectionStatusText(accessEgress)}
+Access and Egress Comment: ${_inspectionComment('Access and Egress')}
 Barricades and Signage: ${_inspectionStatusText(barricadesSignage)}
+Barricades and Signage Comment: ${_inspectionComment('Barricades and Signage')}
 Excavation Safety: ${_inspectionStatusText(excavationSafety)}
+Excavation Safety Comment: ${_inspectionComment('Excavation Safety')}
 Lifting Operations: ${_inspectionStatusText(liftingOperations)}
+Lifting Operations Comment: ${_inspectionComment('Lifting Operations')}
 Electrical Safety: ${_inspectionStatusText(electricalSafety)}
+Electrical Safety Comment: ${_inspectionComment('Electrical Safety')}
 Hot Work: ${_inspectionStatusText(hotWork)}
+Hot Work Comment: ${_inspectionComment('Hot Work')}
 Tools and Equipment: ${_inspectionStatusText(toolsEquipment)}
+Tools and Equipment Comment: ${_inspectionComment('Tools and Equipment')}
 First Aid Facilities: ${_inspectionStatusText(firstAidFacilities)}
+First Aid Facilities Comment: ${_inspectionComment('First Aid Facilities')}
 Chemical Storage: ${_inspectionStatusText(chemicalStorage)}
+Chemical Storage Comment: ${_inspectionComment('Chemical Storage')}
 Environmental Controls: ${_inspectionStatusText(environmentalControls)}
+Environmental Controls Comment: ${_inspectionComment('Environmental Controls')}
 Vehicle Movement: ${_inspectionStatusText(vehicleMovement)}
+Vehicle Movement Comment: ${_inspectionComment('Vehicle Movement')}
 Welfare Facilities: ${_inspectionStatusText(welfareFacilities)}
+Welfare Facilities Comment: ${_inspectionComment('Welfare Facilities')}
 Photos: ${_inspectionImages.isEmpty ? "No photo" : _inspectionImages.map((image) => image.path).join(" | ")}
 ''';
   }

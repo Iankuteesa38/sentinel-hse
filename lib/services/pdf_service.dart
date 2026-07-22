@@ -14,20 +14,32 @@ class PdfService {
     required String analysis,
     required List<File> imageFiles,
   }) async {
+    final now = DateTime.now();
     final pdf = pw.Document();
 
-    final List<pw.MemoryImage> inspectionImages = [];
+    final navy = PdfColor.fromInt(0xFF123B5D);
+    final blue = PdfColor.fromInt(0xFF1D6FA5);
+    final lightBlue = PdfColor.fromInt(0xFFEAF3F8);
+    final lightGrey = PdfColor.fromInt(0xFFF4F6F8);
+    final border = PdfColor.fromInt(0xFFB7C4CE);
+    final green = PdfColor.fromInt(0xFF2E8B57);
+    final orange = PdfColor.fromInt(0xFFE58C24);
+    final red = PdfColor.fromInt(0xFFC94C4C);
+    final amber = PdfColor.fromInt(0xFFFFC857);
+
+    final formattedDate = DateFormat('dd MMM yyyy').format(now);
+
+    final formattedTime = DateFormat('HH:mm').format(now);
+
+    final reportNumber = inspectionId.trim().isEmpty
+        ? 'HSE-${DateFormat('yyyyMMdd-HHmmss').format(now)}'
+        : inspectionId.trim();
+
+    final inspectionImages = <pw.MemoryImage>[];
 
     for (final imageFile in imageFiles) {
-      final imageBytes = await imageFile.readAsBytes();
-      inspectionImages.add(pw.MemoryImage(imageBytes));
+      inspectionImages.add(pw.MemoryImage(await imageFile.readAsBytes()));
     }
-
-    final String formattedDate = DateFormat(
-      'dd MMM yyyy',
-    ).format(DateTime.now());
-
-    final String formattedTime = DateFormat('HH:mm').format(DateTime.now());
 
     final inspectionValues = <String, String>{};
 
@@ -35,11 +47,10 @@ class PdfService {
       final line = rawLine.trim();
       final separatorIndex = line.indexOf(':');
 
-      if (separatorIndex <= 0) {
-        continue;
-      }
+      if (separatorIndex <= 0) continue;
 
       final key = line.substring(0, separatorIndex).trim();
+
       final value = line.substring(separatorIndex + 1).trim();
 
       inspectionValues[key] = value;
@@ -83,6 +94,12 @@ class PdfService {
       return 'Not Applicable';
     }
 
+    String checklistComment(String item) {
+      final comment = inspectionValues['$item Comment']?.trim() ?? '';
+
+      return comment.isEmpty ? 'No comment' : comment;
+    }
+
     final compliantCount = checklistItems
         .where((item) => checklistStatus(item) == 'Compliant')
         .length;
@@ -91,253 +108,686 @@ class PdfService {
         .where((item) => checklistStatus(item) == 'Non-Compliant')
         .length;
 
-    final notApplicableCount = checklistItems
-        .where((item) => checklistStatus(item) == 'Not Applicable')
-        .length;
-    final compliancePercentage = (compliantCount / checklistItems.length) * 100;
+    final applicableCount = compliantCount + nonCompliantCount;
+
+    final compliancePercentage = applicableCount == 0
+        ? 0.0
+        : (compliantCount / applicableCount) * 100;
+
     final projectName = inspectionValues['Project']?.trim().isNotEmpty == true
         ? inspectionValues['Project']!.trim()
         : 'Not specified';
+
     final nonCompliantItems = checklistItems
         .where((item) => checklistStatus(item) == 'Non-Compliant')
         .toList();
-    final overallResult = nonCompliantCount > 0
+
+    final overallResult = applicableCount == 0
+        ? 'Not Assessed'
+        : nonCompliantCount > 0
         ? 'Action Required'
         : 'Satisfactory';
-    final riskLevel = nonCompliantCount >= 3
+
+    final riskLevel = applicableCount == 0
+        ? 'Not Rated'
+        : nonCompliantCount >= 3
         ? 'High'
         : nonCompliantCount >= 1
         ? 'Medium'
         : 'Low';
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.fromLTRB(32, 48, 32, 32),
-        build: (context) {
-          return [
-            pw.Center(
-              child: pw.Text(
-                'SENTINEL HSE AI',
-                style: pw.TextStyle(
-                  fontSize: 24,
-                  fontWeight: pw.FontWeight.bold,
-                ),
+
+    PdfColor statusBackground(String status) {
+      return switch (status) {
+        'Compliant' => PdfColor.fromInt(0xFFEAF7EF),
+        'Non-Compliant' => PdfColor.fromInt(0xFFFBECEC),
+        _ => lightGrey,
+      };
+    }
+
+    PdfColor statusForeground(String status) {
+      return switch (status) {
+        'Compliant' => green,
+        'Non-Compliant' => red,
+        _ => PdfColors.grey700,
+      };
+    }
+
+    pw.Widget smallHeaderLine(String label, String value) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 3),
+        child: pw.RichText(
+          text: pw.TextSpan(
+            style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.black),
+            children: [
+              pw.TextSpan(
+                text: '$label: ',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+              pw.TextSpan(text: value),
+            ],
+          ),
+        ),
+      );
+    }
+
+    pw.Widget informationLabel(String text) {
+      return pw.Container(
+        color: lightGrey,
+        padding: const pw.EdgeInsets.all(6),
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+    }
+
+    pw.Widget informationValue(String text) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.all(6),
+        child: pw.Text(
+          text.trim().isEmpty ? 'Not specified' : text,
+          style: const pw.TextStyle(fontSize: 7),
+        ),
+      );
+    }
+
+    pw.Widget sectionHeading(String title) {
+      return pw.Container(
+        width: double.infinity,
+        padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        color: navy,
+        child: pw.Text(
+          title,
+          style: pw.TextStyle(
+            color: PdfColors.white,
+            fontSize: 9,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+      );
+    }
+
+    pw.Widget summaryCard({
+      required String label,
+      required String value,
+      required PdfColor color,
+    }) {
+      return pw.Container(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: color, width: 0.8),
+          borderRadius: pw.BorderRadius.circular(3),
+        ),
+        child: pw.Row(
+          children: [
+            pw.Container(width: 6, height: 25, color: color),
+            pw.SizedBox(width: 7),
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    value,
+                    style: pw.TextStyle(
+                      color: color,
+                      fontSize: 11,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.Text(label, style: const pw.TextStyle(fontSize: 5.8)),
+                ],
               ),
             ),
-            pw.SizedBox(height: 8),
-            pw.Center(
-              child: pw.Text(
-                'Daily Site Inspection Report',
-                style: pw.TextStyle(
-                  fontSize: 18,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ),
-            pw.SizedBox(height: 24),
+          ],
+        ),
+      );
+    }
 
-            pw.Table(
-              border: pw.TableBorder.all(color: PdfColors.grey400),
-              columnWidths: const {
-                0: pw.FlexColumnWidth(1.2),
-                1: pw.FlexColumnWidth(2.8),
-              },
-              children: [
-                _reportRow('Inspection ID', inspectionId),
-                _reportRow('Project', projectName),
-                _reportRow('Date', formattedDate),
-                _reportRow('Time', formattedTime),
-                _reportRow('Inspector', inspector),
-                _reportRow('Location', location),
-                _reportRow(
-                  'Evidence Photos',
-                  inspectionImages.length.toString(),
-                ),
-                _reportRow('Overall Result', overallResult),
-                _reportRow('Risk Level', riskLevel),
-                _reportRow('Status', 'Open'),
-              ],
-            ),
-
-            pw.SizedBox(height: 24),
-
-            pw.Text(
-              'Inspection Summary',
-              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 10),
-
-            pw.Table(
-              border: pw.TableBorder.all(color: PdfColors.grey400),
-              columnWidths: const {
-                0: pw.FlexColumnWidth(2),
-                1: pw.FlexColumnWidth(1),
-              },
-              children: [
-                _reportRow('Compliant Items', compliantCount.toString()),
-                _reportRow(
-                  'Compliance Percentage',
-                  '${compliancePercentage.toStringAsFixed(1)}%',
-                ),
-                _reportRow('Non-Compliant Items', nonCompliantCount.toString()),
-                _reportRow(
-                  'Not Applicable Items',
-                  notApplicableCount.toString(),
-                ),
-                _reportRow(
-                  'Total Checklist Items',
-                  checklistItems.length.toString(),
-                ),
-              ],
-            ),
-
-            pw.SizedBox(height: 24),
-
-            pw.Text(
-              'Inspection Checklist',
-              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 10),
-
-            pw.Table(
-              border: pw.TableBorder.all(color: PdfColors.grey400),
-              columnWidths: const {
-                0: pw.FlexColumnWidth(3),
-                1: pw.FlexColumnWidth(1.5),
-              },
-              children: [
-                pw.TableRow(
-                  decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+    pw.Widget reportHeader() {
+      return pw.Container(
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: navy, width: 1.2),
+        ),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Expanded(
+              flex: 2,
+              child: pw.Container(
+                color: navy,
+                padding: const pw.EdgeInsets.all(10),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.all(9),
-                      child: pw.Text(
-                        'Checklist Item',
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                    pw.Text(
+                      'SENTINEL HSE AI',
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 17,
+                        fontWeight: pw.FontWeight.bold,
                       ),
                     ),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.all(9),
-                      child: pw.Text(
-                        'Status',
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                    pw.SizedBox(height: 3),
+                    pw.Text(
+                      'Intelligent Safety Management',
+                      style: const pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 7,
                       ),
                     ),
                   ],
                 ),
-                ...checklistItems.map((item) {
-                  final status = checklistStatus(item);
-
-                  final statusColor = status == 'Compliant'
-                      ? PdfColors.green
-                      : status == 'Non-Compliant'
-                      ? PdfColors.red
-                      : PdfColors.grey700;
-
-                  return pw.TableRow(
-                    children: [
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(9),
-                        child: pw.Text(
-                          item,
-                          style: const pw.TextStyle(fontSize: 10),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(9),
-                        child: pw.Text(
-                          status,
-                          style: pw.TextStyle(
-                            fontSize: 10,
-                            fontWeight: pw.FontWeight.bold,
-                            color: statusColor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                }),
-              ],
+              ),
             ),
+            pw.Expanded(
+              flex: 4,
+              child: pw.Container(
+                padding: const pw.EdgeInsets.all(10),
+                alignment: pw.Alignment.center,
+                child: pw.Column(
+                  children: [
+                    pw.Text(
+                      'DAILY SITE INSPECTION',
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        color: navy,
+                        fontSize: 16,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(height: 3),
+                    pw.Text(
+                      'Workplace Compliance, Findings and Corrective Action Report',
+                      textAlign: pw.TextAlign.center,
+                      style: const pw.TextStyle(fontSize: 7.5),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            pw.Expanded(
+              flex: 2,
+              child: pw.Container(
+                color: lightBlue,
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    smallHeaderLine('Inspection ID', reportNumber),
+                    smallHeaderLine(
+                      'Generated',
+                      '$formattedDate, $formattedTime',
+                    ),
+                    smallHeaderLine('Revision', 'Rev. 0'),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
+    pw.Widget continuationHeader() {
+      return pw.Container(
+        margin: const pw.EdgeInsets.only(bottom: 7),
+        padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+        decoration: pw.BoxDecoration(
+          border: pw.Border(bottom: pw.BorderSide(color: navy, width: 0.8)),
+        ),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
             pw.Text(
-              'Action Summary',
-              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+              'SENTINEL HSE AI - DAILY SITE INSPECTION',
+              style: pw.TextStyle(
+                color: navy,
+                fontSize: 7,
+                fontWeight: pw.FontWeight.bold,
+              ),
             ),
-            pw.SizedBox(height: 10),
+            pw.Text(reportNumber, style: const pw.TextStyle(fontSize: 6.5)),
+          ],
+        ),
+      );
+    }
 
+    pw.Widget footer(pw.Context context) {
+      return pw.Container(
+        margin: const pw.EdgeInsets.only(top: 7),
+        padding: const pw.EdgeInsets.only(top: 4),
+        decoration: pw.BoxDecoration(
+          border: pw.Border(top: pw.BorderSide(color: border, width: 0.6)),
+        ),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              'Sentinel HSE AI | $reportNumber | Rev. 0',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+            pw.Text(
+              'Page ${context.pageNumber} of ${context.pagesCount}',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget photoCard({
+      required pw.MemoryImage image,
+      required int number,
+      required int total,
+    }) {
+      return pw.Container(
+        width: double.infinity,
+        padding: const pw.EdgeInsets.all(8),
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: border, width: 0.7),
+          borderRadius: pw.BorderRadius.circular(4),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(
+              'Inspection Evidence Photo $number of $total',
+              style: pw.TextStyle(
+                color: navy,
+                fontSize: 8,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 6),
             pw.Container(
               width: double.infinity,
-              padding: const pw.EdgeInsets.all(12),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: PdfColors.grey400),
-                borderRadius: pw.BorderRadius.circular(6),
-              ),
-              child: nonCompliantItems.isEmpty
-                  ? pw.Text('No non-compliant items identified.')
-                  : pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: nonCompliantItems
-                          .map((item) => pw.Text('- $item'))
-                          .toList(),
-                    ),
+              height: 250,
+              alignment: pw.Alignment.center,
+              child: pw.Image(image, fit: pw.BoxFit.contain),
             ),
+          ],
+        ),
+      );
+    }
 
-            pw.SizedBox(height: 24),
+    pw.Widget signOffHeader(String text) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.all(5),
+        child: pw.Text(
+          text,
+          textAlign: pw.TextAlign.center,
+          style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+    }
 
+    pw.Widget signOffCell() {
+      return pw.Container(
+        height: 55,
+        padding: const pw.EdgeInsets.all(6),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          mainAxisAlignment: pw.MainAxisAlignment.end,
+          children: [
             pw.Text(
-              'Inspection Photos',
-              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+              'Name: ______________________________',
+              style: const pw.TextStyle(fontSize: 6),
             ),
-            pw.SizedBox(height: 10),
-
-            if (inspectionImages.isEmpty)
-              pw.Text('No inspection photos attached.')
-            else
-              for (int index = 0; index < inspectionImages.length; index++) ...[
-                pw.Text(
-                  'Photo ${index + 1} of ${inspectionImages.length}',
-                  style: pw.TextStyle(
-                    fontSize: 12,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 6),
-                pw.Center(
-                  child: pw.Container(
-                    height: 300,
-                    child: pw.Image(
-                      inspectionImages[index],
-                      fit: pw.BoxFit.contain,
-                    ),
-                  ),
-                ),
-                pw.SizedBox(height: 18),
-              ],
-
-            pw.SizedBox(height: 30),
-
+            pw.SizedBox(height: 5),
             pw.Text(
-              'Inspector Signature',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              'Signature: __________________________',
+              style: const pw.TextStyle(fontSize: 6),
             ),
-            pw.SizedBox(height: 30),
-            pw.Container(
-              width: 200,
-              decoration: const pw.BoxDecoration(
-                border: pw.Border(
-                  bottom: pw.BorderSide(color: PdfColors.black),
+            pw.SizedBox(height: 5),
+            pw.Text(
+              'Date: _______________________________',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final actionContent = applicableCount == 0
+        ? pw.Text(
+            'No checklist items were assessed. Mark each applicable item as Compliant or Non-Compliant before this inspection is approved.',
+            style: const pw.TextStyle(fontSize: 8, lineSpacing: 2),
+          )
+        : nonCompliantItems.isEmpty
+        ? pw.Text(
+            'No non-compliant items were identified. Maintain existing controls and continue routine monitoring.',
+            style: const pw.TextStyle(fontSize: 8, lineSpacing: 2),
+          )
+        : pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: nonCompliantItems.map((item) {
+              return pw.Padding(
+                padding: const pw.EdgeInsets.only(bottom: 4),
+                child: pw.Text(
+                  '- $item requires corrective action, assignment of responsibility and verified closure.',
+                  style: const pw.TextStyle(fontSize: 8, lineSpacing: 2),
                 ),
-              ),
-            ),
-          ];
+              );
+            }).toList(),
+          );
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.fromLTRB(28, 42, 28, 28),
+        header: (context) {
+          if (context.pageNumber == 1) {
+            return pw.SizedBox();
+          }
+
+          return continuationHeader();
         },
+        footer: footer,
+        build: (context) => [
+          reportHeader(),
+          pw.SizedBox(height: 10),
+
+          pw.Table(
+            border: pw.TableBorder.all(color: border, width: 0.7),
+            columnWidths: const {
+              0: pw.FixedColumnWidth(72),
+              1: pw.FlexColumnWidth(2.4),
+              2: pw.FixedColumnWidth(72),
+              3: pw.FlexColumnWidth(1.3),
+            },
+            children: [
+              pw.TableRow(
+                children: [
+                  informationLabel('Project'),
+                  informationValue(projectName),
+                  informationLabel('Status'),
+                  informationValue('Open'),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Inspector'),
+                  informationValue(inspector),
+                  informationLabel('Overall Result'),
+                  informationValue(overallResult),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Location'),
+                  informationValue(location),
+                  informationLabel('Risk Level'),
+                  informationValue(riskLevel),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Inspection Date'),
+                  informationValue('$formattedDate, $formattedTime'),
+                  informationLabel('Evidence Photos'),
+                  informationValue(inspectionImages.length.toString()),
+                ],
+              ),
+            ],
+          ),
+
+          pw.SizedBox(height: 10),
+
+          pw.Row(
+            children: [
+              pw.Expanded(
+                child: summaryCard(
+                  label: 'Applicable Items',
+                  value: '$applicableCount/${checklistItems.length}',
+                  color: blue,
+                ),
+              ),
+              pw.SizedBox(width: 6),
+              pw.Expanded(
+                child: summaryCard(
+                  label: 'Compliant',
+                  value: compliantCount.toString(),
+                  color: green,
+                ),
+              ),
+              pw.SizedBox(width: 6),
+              pw.Expanded(
+                child: summaryCard(
+                  label: 'Non-Compliant',
+                  value: nonCompliantCount.toString(),
+                  color: red,
+                ),
+              ),
+              pw.SizedBox(width: 6),
+              pw.Expanded(
+                child: summaryCard(
+                  label: 'Compliance',
+                  value: applicableCount == 0
+                      ? 'N/A'
+                      : '${compliancePercentage.toStringAsFixed(1)}%',
+                  color: applicableCount == 0
+                      ? PdfColors.grey600
+                      : compliancePercentage >= 90
+                      ? green
+                      : compliancePercentage >= 70
+                      ? amber
+                      : red,
+                ),
+              ),
+            ],
+          ),
+
+          pw.SizedBox(height: 12),
+          sectionHeading('Inspection Checklist'),
+          pw.SizedBox(height: 6),
+
+          pw.Table(
+            border: pw.TableBorder.all(color: border, width: 0.7),
+            columnWidths: const {
+              0: pw.FixedColumnWidth(25),
+              1: pw.FlexColumnWidth(2.2),
+              2: pw.FlexColumnWidth(1.3),
+              3: pw.FlexColumnWidth(3),
+            },
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: blue),
+                children: [
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.all(5),
+                    child: pw.Text(
+                      'No.',
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 7,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.all(5),
+                    child: pw.Text(
+                      'Checklist Item',
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 7,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.all(5),
+                    child: pw.Text(
+                      'Status',
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 7,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.all(5),
+                    child: pw.Text(
+                      'Comment / Observation',
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 7,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              ...checklistItems.asMap().entries.map((entry) {
+                final item = entry.value;
+                final status = checklistStatus(item);
+                final comment = checklistComment(item);
+
+                return pw.TableRow(
+                  children: [
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(5),
+                      child: pw.Text(
+                        '${entry.key + 1}',
+                        textAlign: pw.TextAlign.center,
+                        style: const pw.TextStyle(fontSize: 6.5),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(5),
+                      child: pw.Text(
+                        item,
+                        style: const pw.TextStyle(fontSize: 6.5),
+                      ),
+                    ),
+                    pw.Container(
+                      color: statusBackground(status),
+                      padding: const pw.EdgeInsets.all(5),
+                      child: pw.Text(
+                        status,
+                        textAlign: pw.TextAlign.center,
+                        style: pw.TextStyle(
+                          fontSize: 6.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: statusForeground(status),
+                        ),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(5),
+                      child: pw.Text(
+                        comment,
+                        style: const pw.TextStyle(fontSize: 6.5),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ],
+          ),
+
+          pw.SizedBox(height: 12),
+          sectionHeading('Findings and Action Summary'),
+          pw.SizedBox(height: 6),
+
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(8),
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(
+                color: nonCompliantCount > 0
+                    ? red
+                    : applicableCount == 0
+                    ? orange
+                    : green,
+                width: 0.8,
+              ),
+              color: lightGrey,
+            ),
+            child: actionContent,
+          ),
+
+          if (applicableCount == 0) ...[
+            pw.SizedBox(height: 8),
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.all(8),
+              decoration: pw.BoxDecoration(
+                color: PdfColor.fromInt(0xFFFFF4E5),
+                border: pw.Border.all(color: orange, width: 0.8),
+              ),
+              child: pw.Text(
+                'Assessment Warning: The inspection cannot be classified as Satisfactory or Low Risk because all checklist items were marked Not Applicable.',
+                style: const pw.TextStyle(fontSize: 7),
+              ),
+            ),
+          ],
+
+          if (inspectionImages.isNotEmpty) ...[
+            pw.NewPage(),
+            sectionHeading('Inspection Evidence Photos'),
+            pw.SizedBox(height: 8),
+
+            for (int index = 0; index < inspectionImages.length; index++) ...[
+              photoCard(
+                image: inspectionImages[index],
+                number: index + 1,
+                total: inspectionImages.length,
+              ),
+              pw.SizedBox(height: 12),
+            ],
+          ],
+
+          pw.SizedBox(height: 10),
+
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(8),
+            decoration: pw.BoxDecoration(
+              color: lightGrey,
+              border: pw.Border.all(color: orange, width: 0.8),
+            ),
+            child: pw.Text(
+              'Review Requirement: The inspector and responsible supervisor must review all findings. Non-compliant items require assigned corrective actions, target dates and verified closure before the inspection is considered complete.',
+              style: const pw.TextStyle(fontSize: 7),
+            ),
+          ),
+
+          pw.SizedBox(height: 12),
+
+          pw.Table(
+            border: pw.TableBorder.all(color: border, width: 0.7),
+            columnWidths: const {
+              0: pw.FlexColumnWidth(),
+              1: pw.FlexColumnWidth(),
+              2: pw.FlexColumnWidth(),
+            },
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: lightGrey),
+                children: [
+                  signOffHeader('Inspected By'),
+                  signOffHeader('Reviewed By'),
+                  signOffHeader('Approved By'),
+                ],
+              ),
+              pw.TableRow(
+                children: [signOffCell(), signOffCell(), signOffCell()],
+              ),
+            ],
+          ),
+        ],
       ),
     );
 
-    await Printing.layoutPdf(
-      name: 'Sentinel_HSE_Daily_Inspection_$inspectionId.pdf',
-      onLayout: (format) async => pdf.save(),
+    final pdfBytes = await pdf.save();
+
+    await Printing.sharePdf(
+      bytes: pdfBytes,
+      filename: 'Sentinel_HSE_Daily_Inspection_$reportNumber.pdf',
     );
   }
 
