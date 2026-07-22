@@ -553,7 +553,22 @@ class PdfService {
     required String investigationSummary,
     String evidencePhotoPath = '',
   }) async {
-    final pdf = pw.Document();
+    final now = DateTime.now();
+
+    final formattedDate = DateFormat('dd MMM yyyy').format(now);
+
+    final formattedTime = DateFormat('HH:mm').format(now);
+
+    final reportNumber = 'AI-${DateFormat('yyyyMMdd-HHmmss').format(now)}';
+
+    final navy = PdfColor.fromInt(0xFF123B5D);
+    final blue = PdfColor.fromInt(0xFF1D6FA5);
+    final lightBlue = PdfColor.fromInt(0xFFEAF3F8);
+    final lightGrey = PdfColor.fromInt(0xFFF4F6F8);
+    final border = PdfColor.fromInt(0xFFB7C4CE);
+    final green = PdfColor.fromInt(0xFF2E8B57);
+    final orange = PdfColor.fromInt(0xFFE58C24);
+    final red = PdfColor.fromInt(0xFFC94C4C);
 
     final evidencePhotoPaths = evidencePhotoPath
         .split('|')
@@ -561,7 +576,7 @@ class PdfService {
         .where((path) => path.isNotEmpty && path.toLowerCase() != 'no photo')
         .toList();
 
-    final List<pw.MemoryImage> evidencePhotoImages = [];
+    final evidencePhotoImages = <pw.MemoryImage>[];
 
     for (final photoPath in evidencePhotoPaths) {
       final recoveredPhoto = await StorageService.getInspectionImage(photoPath);
@@ -572,6 +587,7 @@ class PdfService {
         );
       }
     }
+
     final type = incidentType.toLowerCase();
 
     String aiRootCause;
@@ -581,267 +597,709 @@ class PdfService {
 
     if (type.contains('vehicle')) {
       aiRootCause =
-          'Possible causes include driver inattention, unsafe speed, poor lane discipline, fatigue, or inadequate journey management.';
+          'Possible contributing factors include driver inattention, unsafe speed, poor lane discipline, fatigue, ineffective journey management, inadequate traffic controls, or failure to follow defensive-driving requirements.';
 
       aiCorrectiveActions =
-          'Secure the scene, assist injured persons, notify the control room and police where required, inspect the vehicles, and suspend involved drivers pending investigation.';
+          'Secure the incident scene, assist injured persons, notify the control room and relevant authorities, preserve evidence, inspect the vehicles, review IVMS information, and suspend the affected activity until the investigation is completed.';
 
       aiPreventiveActions =
-          'Conduct defensive-driving refresher training, review IVMS data, strengthen journey management, monitor speed compliance, and carry out regular road-safety inspections.';
+          'Strengthen journey management, defensive-driving training, IVMS monitoring, speed control, fatigue management, vehicle inspection, route assessment, supervision, and closure of driving violations.';
 
       aiLessonsLearned =
-          'Vehicle movements must be properly planned, drivers must follow defensive-driving rules, and IVMS violations must be addressed promptly.';
+          'Vehicle movements must be planned and controlled, drivers must remain fit and competent, and unsafe driving indicators must be corrected before they result in a serious incident.';
     } else if (type.contains('fire')) {
       aiRootCause =
-          'Possible causes include uncontrolled ignition sources, poor housekeeping, hot-work failures, flammable materials, or inadequate fire-prevention controls.';
+          'Possible contributing factors include uncontrolled ignition sources, poor housekeeping, ineffective hot-work controls, improper storage of flammable materials, equipment failure, or inadequate fire-prevention arrangements.';
 
       aiCorrectiveActions =
-          'Raise the alarm, stop work, evacuate personnel, isolate energy sources where safe, and use the correct fire extinguisher only if trained.';
+          'Raise the alarm, stop work, evacuate personnel, isolate energy sources where safe, contact emergency services, preserve the scene, and use firefighting equipment only when personnel are trained and conditions are safe.';
 
       aiPreventiveActions =
-          'Strengthen hot-work controls, provide fire watches, inspect extinguishers, store flammable materials safely, and conduct regular emergency drills.';
+          'Strengthen hot-work permits, gas testing, fire-watch arrangements, housekeeping, flammable-material storage, equipment inspection, ignition-source control, emergency drills, and fire-extinguisher readiness.';
 
       aiLessonsLearned =
-          'Fire incidents are prevented through strict ignition control, good housekeeping, effective permits, and emergency readiness.';
+          'Fire prevention requires effective permit control, ignition-source management, good housekeeping, trained personnel, and immediate emergency response.';
     } else if (type.contains('height') || type.contains('fall')) {
       aiRootCause =
-          'Possible causes include inadequate work-at-height planning, unsafe access equipment, missing edge protection, or failure to maintain 100% tie-off.';
+          'Possible contributing factors include inadequate work-at-height planning, unsafe access equipment, missing edge protection, unsuitable anchorage, failure to maintain continuous attachment, poor supervision, or an incomplete rescue plan.';
 
       aiCorrectiveActions =
-          'Stop the work, rescue and assist affected persons, secure the area, inspect access equipment, and verify the fall-protection system.';
+          'Stop the work, initiate rescue arrangements, assist affected persons, secure the area, inspect access and fall-protection equipment, preserve evidence, and review the work-at-height permit and risk assessment.';
 
       aiPreventiveActions =
-          'Use approved scaffolds and ladders, inspect harnesses, provide suitable anchor points, enforce 100% tie-off, and maintain a rescue plan.';
+          'Use approved scaffolds and access systems, inspect harnesses and anchor points, maintain edge protection, enforce continuous attachment, provide competent supervision, and ensure a task-specific rescue plan is available.';
 
       aiLessonsLearned =
-          'Work at height must be properly planned, supervised, and performed only with approved fall-protection systems.';
+          'Work at height must be properly planned, permitted, supervised, and carried out only with suitable access, fall prevention, fall arrest, and rescue arrangements.';
     } else if (type.contains('confined')) {
       aiRootCause =
-          'Possible causes include inadequate gas testing, poor ventilation, failure of permit controls, or insufficient rescue preparedness.';
+          'Possible contributing factors include inadequate atmospheric testing, poor ventilation, ineffective isolation, failure of entry-permit controls, weak communication, or insufficient rescue preparedness.';
 
       aiCorrectiveActions =
-          'Evacuate the confined space, isolate the area, perform atmospheric testing, provide ventilation, and review the entry permit.';
+          'Evacuate the confined space, isolate and barricade the area, conduct atmospheric testing, provide ventilation, account for all entrants, notify emergency personnel, and review the entry permit before any re-entry.';
 
       aiPreventiveActions =
-          'Maintain continuous gas monitoring, assign a trained standby person, confirm rescue equipment is available, and strictly control entry permits.';
+          'Maintain continuous gas monitoring, positive isolation, trained attendants, reliable communication, controlled entry and exit, suitable ventilation, competent supervision, and a rehearsed confined-space rescue plan.';
 
       aiLessonsLearned =
-          'Confined-space entry must never begin without gas testing, ventilation, supervision, communication, and a rescue plan.';
+          'Confined-space entry must never begin without effective isolation, testing, ventilation, communication, supervision, standby personnel, and rescue readiness.';
     } else {
       aiRootCause =
-          'The incident may have resulted from inadequate hazard control, unsafe behavior, weak supervision, or failure to follow the approved procedure.';
+          'The incident may have resulted from inadequate hazard identification, ineffective controls, equipment defects, unsafe acts, unsafe conditions, weak supervision, insufficient maintenance, or failure to follow the approved procedure.';
 
       aiCorrectiveActions =
-          'Stop the activity, secure the area, assist affected persons, notify responsible personnel, and investigate before work resumes.';
+          'Stop the activity, secure the area, assist affected persons, notify responsible personnel, preserve evidence, inspect the equipment or workplace, and complete the investigation before work resumes.';
 
       aiPreventiveActions =
-          'Review the risk assessment and procedure, retrain the workforce, strengthen supervision, and verify effective closure of corrective actions.';
+          'Review the risk assessment and work procedure, correct defective conditions, strengthen preventive maintenance, retrain affected personnel, improve supervision, communicate lessons learned, and verify effective closure of all corrective actions.';
 
       aiLessonsLearned =
-          'All incidents must be reported promptly, investigated thoroughly, and communicated to prevent recurrence.';
+          'All incidents and near misses must be reported promptly, investigated thoroughly, corrected effectively, and communicated to prevent recurrence.';
     }
-    final formattedDate = DateFormat('dd MMM yyyy').format(DateTime.now());
-    final formattedTime = DateFormat('HH:mm').format(DateTime.now());
-    final reportNumber =
-        'AI-${DateFormat('yyyyMMdd-HHmmss').format(DateTime.now())}';
+
+    final cleanedSummary = investigationSummary
+        .replaceAll('{', '')
+        .replaceAll('}', '')
+        .replaceAll(RegExp(r',\s*(?=[A-Za-z][A-Za-z ]{1,40}:)'), '\n');
+
+    final summaryLines = cleanedSummary
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+
+    final investigationFields = <MapEntry<String, String>>[];
+
+    final additionalDetails = <String>[];
+
+    for (final line in summaryLines) {
+      final separatorIndex = line.indexOf(':');
+
+      if (separatorIndex <= 0) {
+        if (!line.contains('/var/mobile/')) {
+          additionalDetails.add(line);
+        }
+
+        continue;
+      }
+
+      var title = line.substring(0, separatorIndex).trim();
+
+      var value = line.substring(separatorIndex + 1).trim();
+
+      final lowerTitle = title.toLowerCase();
+      final lowerValue = value.toLowerCase();
+
+      if (lowerTitle.contains('photo') ||
+          lowerTitle.contains('evidence path') ||
+          value.contains('/var/mobile/') ||
+          lowerValue == 'no photo') {
+        continue;
+      }
+
+      if (lowerTitle == 'location' ||
+          lowerTitle == 'incident type' ||
+          lowerTitle == 'severity') {
+        continue;
+      }
+
+      if (lowerTitle == 'date') {
+        final parsedDate = DateTime.tryParse(value);
+
+        if (parsedDate != null) {
+          title = 'Record Created';
+          value = DateFormat('dd MMM yyyy, HH:mm').format(parsedDate.toLocal());
+        }
+      }
+
+      if (title.isNotEmpty && value.isNotEmpty) {
+        investigationFields.add(MapEntry(title, value));
+      }
+    }
+
+    if (additionalDetails.isNotEmpty) {
+      investigationFields.add(
+        MapEntry('Additional Details', additionalDetails.join(' ')),
+      );
+    }
+
+    PdfColor riskColor(String value) {
+      final normalized = value.toLowerCase();
+
+      if (normalized.contains('critical') || normalized.contains('extreme')) {
+        return red;
+      }
+
+      if (normalized.contains('high')) {
+        return orange;
+      }
+
+      if (normalized.contains('medium') || normalized.contains('moderate')) {
+        return PdfColor.fromInt(0xFFFFC857);
+      }
+
+      if (normalized.contains('low')) {
+        return green;
+      }
+
+      return border;
+    }
+
+    pw.Widget smallHeaderLine(String label, String value) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 3),
+        child: pw.RichText(
+          text: pw.TextSpan(
+            style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.black),
+            children: [
+              pw.TextSpan(
+                text: '$label: ',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+              pw.TextSpan(text: value),
+            ],
+          ),
+        ),
+      );
+    }
+
+    pw.Widget informationLabel(String text) {
+      return pw.Container(
+        color: lightGrey,
+        padding: const pw.EdgeInsets.all(6),
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+    }
+
+    pw.Widget informationValue(String text) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.all(6),
+        child: pw.Text(
+          text.trim().isEmpty ? 'Not specified' : text,
+          style: const pw.TextStyle(fontSize: 7),
+        ),
+      );
+    }
+
+    pw.Widget sectionHeading(String title) {
+      return pw.Container(
+        width: double.infinity,
+        padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        color: navy,
+        child: pw.Text(
+          title,
+          style: pw.TextStyle(
+            color: PdfColors.white,
+            fontSize: 9,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+      );
+    }
+
+    pw.Widget summaryCard({
+      required String label,
+      required String value,
+      required PdfColor color,
+    }) {
+      return pw.Container(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: color, width: 0.8),
+          borderRadius: pw.BorderRadius.circular(3),
+        ),
+        child: pw.Row(
+          children: [
+            pw.Container(width: 6, height: 25, color: color),
+            pw.SizedBox(width: 7),
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    value.trim().isEmpty ? 'N/A' : value,
+                    style: pw.TextStyle(
+                      color: color,
+                      fontSize: 11,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.Text(label, style: const pw.TextStyle(fontSize: 6.2)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget analysisSection({
+      required String title,
+      required String value,
+      required PdfColor color,
+    }) {
+      return pw.Container(
+        width: double.infinity,
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: border, width: 0.7),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Container(
+              width: double.infinity,
+              color: lightBlue,
+              padding: const pw.EdgeInsets.symmetric(
+                horizontal: 7,
+                vertical: 5,
+              ),
+              child: pw.Text(
+                title,
+                style: pw.TextStyle(
+                  color: color,
+                  fontSize: 8,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
+                value.trim().isEmpty ? 'Not specified' : value,
+                style: const pw.TextStyle(fontSize: 8, lineSpacing: 2),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget evidencePhotoCard({
+      required pw.MemoryImage image,
+      required int number,
+      required int total,
+    }) {
+      return pw.Container(
+        width: double.infinity,
+        padding: const pw.EdgeInsets.all(8),
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: border, width: 0.7),
+          borderRadius: pw.BorderRadius.circular(4),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(
+              'Incident Evidence Photo $number of $total',
+              style: pw.TextStyle(
+                color: navy,
+                fontSize: 8,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 6),
+            pw.Container(
+              width: double.infinity,
+              height: 220,
+              alignment: pw.Alignment.center,
+              child: pw.Image(image, fit: pw.BoxFit.contain),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget signOffHeader(String text) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.all(5),
+        child: pw.Text(
+          text,
+          textAlign: pw.TextAlign.center,
+          style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+    }
+
+    pw.Widget signOffCell() {
+      return pw.Container(
+        height: 55,
+        padding: const pw.EdgeInsets.all(6),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          mainAxisAlignment: pw.MainAxisAlignment.end,
+          children: [
+            pw.Text(
+              'Name: ______________________________',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+            pw.SizedBox(height: 5),
+            pw.Text(
+              'Signature: __________________________',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+            pw.SizedBox(height: 5),
+            pw.Text(
+              'Date: _______________________________',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget signOffSection() {
+      return pw.Table(
+        border: pw.TableBorder.all(color: border, width: 0.7),
+        columnWidths: const {
+          0: pw.FlexColumnWidth(),
+          1: pw.FlexColumnWidth(),
+          2: pw.FlexColumnWidth(),
+        },
+        children: [
+          pw.TableRow(
+            decoration: pw.BoxDecoration(color: lightGrey),
+            children: [
+              signOffHeader('Prepared By'),
+              signOffHeader('Reviewed By'),
+              signOffHeader('Approved By'),
+            ],
+          ),
+          pw.TableRow(children: [signOffCell(), signOffCell(), signOffCell()]),
+        ],
+      );
+    }
+
+    pw.Widget reportHeader() {
+      return pw.Container(
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: navy, width: 1.2),
+        ),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Expanded(
+              flex: 2,
+              child: pw.Container(
+                color: navy,
+                padding: const pw.EdgeInsets.all(10),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'SENTINEL HSE AI',
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 17,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(height: 3),
+                    pw.Text(
+                      'Intelligent Safety Management',
+                      style: const pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 7,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            pw.Expanded(
+              flex: 4,
+              child: pw.Container(
+                padding: const pw.EdgeInsets.all(10),
+                alignment: pw.Alignment.center,
+                child: pw.Column(
+                  children: [
+                    pw.Text(
+                      'INCIDENT INVESTIGATION REPORT',
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        color: navy,
+                        fontSize: 16,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(height: 3),
+                    pw.Text(
+                      'Incident Details, Evidence, Root Cause and Corrective Actions',
+                      textAlign: pw.TextAlign.center,
+                      style: const pw.TextStyle(fontSize: 7.5),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            pw.Expanded(
+              flex: 2,
+              child: pw.Container(
+                color: lightBlue,
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    smallHeaderLine('Report No.', reportNumber),
+                    smallHeaderLine(
+                      'Generated',
+                      '$formattedDate, $formattedTime',
+                    ),
+                    smallHeaderLine('Revision', 'Rev. 0'),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget continuationHeader() {
+      return pw.Container(
+        margin: const pw.EdgeInsets.only(bottom: 7),
+        padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+        decoration: pw.BoxDecoration(
+          border: pw.Border(bottom: pw.BorderSide(color: navy, width: 0.8)),
+        ),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              'SENTINEL HSE AI - INCIDENT INVESTIGATION',
+              style: pw.TextStyle(
+                color: navy,
+                fontSize: 7,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.Text(reportNumber, style: const pw.TextStyle(fontSize: 6.5)),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget footer(pw.Context context) {
+      return pw.Container(
+        margin: const pw.EdgeInsets.only(top: 7),
+        padding: const pw.EdgeInsets.only(top: 4),
+        decoration: pw.BoxDecoration(
+          border: pw.Border(top: pw.BorderSide(color: border, width: 0.6)),
+        ),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              'Sentinel HSE AI | $reportNumber | Rev. 0',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+            pw.Text(
+              'Page ${context.pageNumber} of ${context.pagesCount}',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final pdf = pw.Document();
+
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.fromLTRB(32, 48, 32, 32),
-        build: (context) {
-          return [
-            pw.Center(
-              child: pw.Text(
-                'SENTINEL HSE AI',
-                style: pw.TextStyle(
-                  fontSize: 24,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ),
-            pw.SizedBox(height: 8),
-            pw.Center(
-              child: pw.Text(
-                'AI Incident Investigation Report',
-                style: pw.TextStyle(
-                  fontSize: 18,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ),
-            pw.SizedBox(height: 8),
+        margin: const pw.EdgeInsets.fromLTRB(28, 42, 28, 28),
+        header: (context) {
+          if (context.pageNumber == 1) {
+            return pw.SizedBox();
+          }
 
-            pw.Center(
-              child: pw.Text(
-                'Report Number: $reportNumber',
-                style: const pw.TextStyle(fontSize: 11),
-              ),
-            ),
-
-            pw.SizedBox(height: 24),
-            pw.Table(
-              border: pw.TableBorder.all(color: PdfColors.grey400),
-              columnWidths: const {
-                0: pw.FlexColumnWidth(1.2),
-                1: pw.FlexColumnWidth(2.8),
-              },
-              children: [
-                _reportRow('Date', formattedDate),
-                _reportRow('Time', formattedTime),
-                _reportRow('Incident Type', incidentType),
-                _reportRow('Severity', severity),
-                _reportRow('AI Risk Level', riskLevel),
-                _reportRow('Location', location),
-              ],
-            ),
-
-            pw.SizedBox(height: 24),
-
-            pw.Text(
-              'Incident Investigation Details',
-              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
-            ),
-
-            pw.SizedBox(height: 10),
-
-            pw.Container(
-              width: double.infinity,
-              padding: const pw.EdgeInsets.all(14),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: PdfColors.grey400),
-                borderRadius: pw.BorderRadius.circular(6),
-              ),
-              child: pw.Text(
-                investigationSummary
-                    .replaceAll('{', '')
-                    .replaceAll('}', '')
-                    .replaceAll(', ', '\n'),
-                style: const pw.TextStyle(fontSize: 11, lineSpacing: 5),
-              ),
-            ),
-            pw.SizedBox(height: 20),
-
-            if (evidencePhotoImages.isNotEmpty) ...[
-              pw.Text(
-                'Incident Evidence Photos',
-                style: pw.TextStyle(
-                  fontSize: 16,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 8),
-
-              for (
-                int index = 0;
-                index < evidencePhotoImages.length;
-                index++
-              ) ...[
-                pw.Text(
-                  'Photo ${index + 1} of ${evidencePhotoImages.length}',
-                  style: pw.TextStyle(
-                    fontSize: 12,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 6),
-                pw.Container(
-                  width: double.infinity,
-                  alignment: pw.Alignment.center,
-                  padding: const pw.EdgeInsets.all(8),
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.grey400),
-                    borderRadius: pw.BorderRadius.circular(6),
-                  ),
-                  child: pw.Image(
-                    evidencePhotoImages[index],
-                    height: 220,
-                    fit: pw.BoxFit.contain,
-                  ),
-                ),
-                pw.SizedBox(height: 18),
-              ],
-
-              pw.SizedBox(height: 20),
-            ],
-
-            pw.Text(
-              'AI Root Cause Analysis',
-              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
-            ),
-
-            pw.SizedBox(height: 8),
-
-            pw.Text(
-              aiRootCause,
-              style: const pw.TextStyle(fontSize: 11, lineSpacing: 4),
-            ),
-
-            pw.SizedBox(height: 16),
-
-            pw.Text(
-              'Immediate Corrective Actions',
-              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
-            ),
-
-            pw.SizedBox(height: 8),
-
-            pw.Text(
-              aiCorrectiveActions,
-              style: const pw.TextStyle(fontSize: 11, lineSpacing: 4),
-            ),
-
-            pw.SizedBox(height: 16),
-
-            pw.Text(
-              'Preventive Actions',
-              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
-            ),
-
-            pw.SizedBox(height: 8),
-
-            pw.Text(
-              aiPreventiveActions,
-              style: const pw.TextStyle(fontSize: 11, lineSpacing: 4),
-            ),
-
-            pw.SizedBox(height: 16),
-
-            pw.Text(
-              'Lessons Learned',
-              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
-            ),
-
-            pw.SizedBox(height: 8),
-
-            pw.Text(
-              aiLessonsLearned,
-              style: const pw.TextStyle(fontSize: 11, lineSpacing: 4),
-            ),
-            pw.SizedBox(height: 30),
-
-            pw.Text(
-              'Prepared By',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-            ),
-
-            pw.SizedBox(height: 30),
-
-            pw.Container(
-              width: 200,
-              decoration: const pw.BoxDecoration(
-                border: pw.Border(
-                  bottom: pw.BorderSide(color: PdfColors.black),
-                ),
-              ),
-            ),
-          ];
+          return continuationHeader();
         },
+        footer: footer,
+        build: (context) => [
+          reportHeader(),
+          pw.SizedBox(height: 10),
+
+          pw.Table(
+            border: pw.TableBorder.all(color: border, width: 0.7),
+            columnWidths: const {
+              0: pw.FixedColumnWidth(72),
+              1: pw.FlexColumnWidth(2.4),
+              2: pw.FixedColumnWidth(72),
+              3: pw.FlexColumnWidth(1.3),
+            },
+            children: [
+              pw.TableRow(
+                children: [
+                  informationLabel('Incident Type'),
+                  informationValue(incidentType),
+                  informationLabel('Severity'),
+                  informationValue(severity),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Location'),
+                  informationValue(location),
+                  informationLabel('AI Risk Level'),
+                  informationValue(riskLevel),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Report Date'),
+                  informationValue('$formattedDate, $formattedTime'),
+                  informationLabel('Evidence Photos'),
+                  informationValue(evidencePhotoImages.length.toString()),
+                ],
+              ),
+            ],
+          ),
+
+          pw.SizedBox(height: 10),
+
+          pw.Row(
+            children: [
+              pw.Expanded(
+                child: summaryCard(
+                  label: 'Incident Type',
+                  value: incidentType,
+                  color: blue,
+                ),
+              ),
+              pw.SizedBox(width: 6),
+              pw.Expanded(
+                child: summaryCard(
+                  label: 'Severity',
+                  value: severity,
+                  color: riskColor(severity),
+                ),
+              ),
+              pw.SizedBox(width: 6),
+              pw.Expanded(
+                child: summaryCard(
+                  label: 'AI Risk Level',
+                  value: riskLevel,
+                  color: riskColor(riskLevel),
+                ),
+              ),
+              pw.SizedBox(width: 6),
+              pw.Expanded(
+                child: summaryCard(
+                  label: 'Evidence Photos',
+                  value: evidencePhotoImages.length.toString(),
+                  color: green,
+                ),
+              ),
+            ],
+          ),
+
+          pw.SizedBox(height: 12),
+          sectionHeading('Incident Investigation Details'),
+          pw.SizedBox(height: 6),
+
+          if (investigationFields.isEmpty)
+            analysisSection(
+              title: 'Investigation Summary',
+              value: cleanedSummary,
+              color: blue,
+            )
+          else
+            pw.Table(
+              border: pw.TableBorder.all(color: border, width: 0.7),
+              columnWidths: const {
+                0: pw.FixedColumnWidth(110),
+                1: pw.FlexColumnWidth(),
+              },
+              children: investigationFields.map((field) {
+                return pw.TableRow(
+                  children: [
+                    informationLabel(field.key),
+                    informationValue(field.value),
+                  ],
+                );
+              }).toList(),
+            ),
+
+          if (evidencePhotoImages.isNotEmpty) ...[
+            pw.NewPage(),
+            pw.SizedBox(height: 12),
+            sectionHeading('Incident Evidence Photos'),
+            pw.SizedBox(height: 8),
+
+            for (
+              int index = 0;
+              index < evidencePhotoImages.length;
+              index++
+            ) ...[
+              evidencePhotoCard(
+                image: evidencePhotoImages[index],
+                number: index + 1,
+                total: evidencePhotoImages.length,
+              ),
+              pw.SizedBox(height: 12),
+            ],
+          ],
+
+          pw.SizedBox(height: 8),
+          sectionHeading('Investigation Findings and Actions'),
+          pw.SizedBox(height: 7),
+
+          analysisSection(
+            title: 'AI Root Cause Analysis',
+            value: aiRootCause,
+            color: red,
+          ),
+          pw.SizedBox(height: 8),
+
+          analysisSection(
+            title: 'Immediate Corrective Actions',
+            value: aiCorrectiveActions,
+            color: orange,
+          ),
+          pw.SizedBox(height: 8),
+
+          analysisSection(
+            title: 'Preventive Actions',
+            value: aiPreventiveActions,
+            color: green,
+          ),
+          pw.SizedBox(height: 8),
+
+          analysisSection(
+            title: 'Lessons Learned',
+            value: aiLessonsLearned,
+            color: navy,
+          ),
+
+          pw.SizedBox(height: 12),
+
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(8),
+            decoration: pw.BoxDecoration(
+              color: lightGrey,
+              border: pw.Border.all(color: orange, width: 0.8),
+            ),
+            child: pw.Text(
+              'Review Requirement: This AI-assisted investigation must be reviewed by a competent investigation team. Corrective actions must be assigned, tracked, verified for effectiveness, and formally closed before the incident is considered complete.',
+              style: const pw.TextStyle(fontSize: 7),
+            ),
+          ),
+
+          pw.SizedBox(height: 12),
+          signOffSection(),
+        ],
       ),
     );
 
-    await Printing.layoutPdf(
-      name: 'Sentinel_HSE_AI_Investigation_Report_$reportNumber.pdf',
-      onLayout: (format) async => pdf.save(),
+    final pdfBytes = await pdf.save();
+
+    await Printing.sharePdf(
+      bytes: pdfBytes,
+      filename: 'Sentinel_HSE_AI_Investigation_Report_$reportNumber.pdf',
     );
   }
 
