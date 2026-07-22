@@ -14,6 +14,11 @@ class _HazardPageState extends State<HazardPage> {
   final locationController = TextEditingController();
   final descriptionController = TextEditingController();
   final reportedByController = TextEditingController();
+  final responsiblePersonController = TextEditingController();
+  final targetDateController = TextEditingController();
+  final immediateControlsController = TextEditingController();
+  final correctiveActionController = TextEditingController();
+  final preventiveActionController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   final List<File> hazardImages = [];
   String category = "Slip / Trip";
@@ -119,7 +124,100 @@ class _HazardPageState extends State<HazardPage> {
             "Reported By",
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
-          TextField(controller: reportedByController),
+          TextField(
+            controller: reportedByController,
+            textInputAction: TextInputAction.next,
+          ),
+
+          const SizedBox(height: 20),
+
+          const Text(
+            "Risk Owner / Responsible Person",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          TextField(
+            controller: responsiblePersonController,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              hintText: "Enter responsible person",
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          const Text(
+            "Target Completion Date",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          TextField(
+            controller: targetDateController,
+            readOnly: true,
+            decoration: const InputDecoration(
+              hintText: "Select target date",
+              suffixIcon: Icon(Icons.calendar_today),
+            ),
+            onTap: () async {
+              final selectedDate = await showDatePicker(
+                context: context,
+                initialDate: DateTime.now(),
+                firstDate: DateTime.now(),
+                lastDate: DateTime.now().add(const Duration(days: 3650)),
+              );
+
+              if (selectedDate != null) {
+                targetDateController.text = selectedDate
+                    .toIso8601String()
+                    .split('T')
+                    .first;
+              }
+            },
+          ),
+
+          const SizedBox(height: 20),
+
+          const Text(
+            "Immediate Controls / Containment",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          TextField(
+            controller: immediateControlsController,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              hintText: "Enter immediate temporary controls",
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          const Text(
+            "Corrective Action",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          TextField(
+            controller: correctiveActionController,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              hintText: "Enter permanent corrective action",
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          const Text(
+            "Preventive Action",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          TextField(
+            controller: preventiveActionController,
+            maxLines: 3,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) {
+              FocusScope.of(context).unfocus();
+            },
+            decoration: const InputDecoration(
+              hintText: "Enter controls to prevent recurrence",
+            ),
+          ),
 
           const SizedBox(height: 20),
           const Text(
@@ -222,12 +320,18 @@ class _HazardPageState extends State<HazardPage> {
                   ? 'No photo'
                   : hazardPhotoPaths.join(' | ');
               String hazard =
-                  "Location: ${locationController.text}\n"
+                  "Location: ${locationController.text.trim()}\n"
                   "Category: $category\n"
-                  "Description: ${descriptionController.text}\n"
+                  "Description: ${descriptionController.text.trim()}\n"
                   "Risk Level: $riskLevel\n"
+                  "Persons Exposed: To be confirmed by the responsible supervisor.\n"
+                  "Responsible Person: ${responsiblePersonController.text.trim()}\n"
+                  "Target Date: ${targetDateController.text.trim()}\n"
+                  "Immediate Controls: ${immediateControlsController.text.trim()}\n"
+                  "Corrective Action: ${correctiveActionController.text.trim()}\n"
+                  "Preventive Action: ${preventiveActionController.text.trim()}\n"
                   "Photos: $hazardPhotosText\n"
-                  "Reported By: ${reportedByController.text}\n"
+                  "Reported By: ${reportedByController.text.trim()}\n"
                   "Status: $status";
 
               await StorageService.saveHazard(hazard);

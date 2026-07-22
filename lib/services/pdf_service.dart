@@ -1474,7 +1474,14 @@ class PdfService {
     required String hazardData,
   }) async {
     final pdf = pw.Document();
-
+    final navy = PdfColor.fromInt(0xFF123B5D);
+    final blue = PdfColor.fromInt(0xFF1D6FA5);
+    final lightBlue = PdfColor.fromInt(0xFFEAF3F8);
+    final lightGrey = PdfColor.fromInt(0xFFF4F6F8);
+    final border = PdfColor.fromInt(0xFFB7C4CE);
+    final green = PdfColor.fromInt(0xFF2E8B57);
+    final orange = PdfColor.fromInt(0xFFE58C24);
+    final red = PdfColor.fromInt(0xFFC94C4C);
     final photoLine = hazardData.split('\n').firstWhere((line) {
       final trimmedLine = line.trim();
 
@@ -1535,6 +1542,117 @@ class PdfService {
     }
 
     final visibleHazardData = cleanedHazardLines.join('\n');
+    final hazardFields = <String, String>{};
+    final additionalDetails = <String>[];
+
+    for (final line in cleanedHazardLines) {
+      final separatorIndex = line.indexOf(':');
+
+      if (separatorIndex <= 0) {
+        additionalDetails.add(line);
+        continue;
+      }
+
+      final key = line.substring(0, separatorIndex).trim();
+      final value = line.substring(separatorIndex + 1).trim();
+
+      if (key.isNotEmpty && value.isNotEmpty) {
+        hazardFields[key] = value;
+      }
+    }
+
+    String readHazardField(
+      List<String> possibleKeys, {
+      String fallback = 'Not specified',
+    }) {
+      for (final key in possibleKeys) {
+        final value = hazardFields[key]?.trim();
+
+        if (value != null && value.isNotEmpty) {
+          return value;
+        }
+      }
+
+      return fallback;
+    }
+
+    final hazardLocation = readHazardField(['Location']);
+
+    final hazardCategory = readHazardField(['Category', 'Hazard Category']);
+    final hazardDescription = readHazardField(
+      ['Description', 'Hazard Description'],
+      fallback: additionalDetails.isNotEmpty
+          ? additionalDetails.join(' ')
+          : visibleHazardData.trim().isEmpty
+          ? 'Not specified'
+          : visibleHazardData,
+    );
+    final hazardRiskLevel = readHazardField(['Risk Level', 'Risk']);
+    final reportedBy = readHazardField([
+      'Reported By',
+      'Reporter',
+      'Inspector',
+    ]);
+    final hazardStatus = readHazardField([
+      'Status',
+    ], fallback: finalHazardStatus ?? 'Open');
+
+    final personsExposed = readHazardField([
+      'Persons Exposed',
+      'Persons at Risk',
+    ], fallback: 'To be confirmed by the responsible supervisor.');
+
+    final potentialConsequences = readHazardField(
+      ['Potential Consequences', 'Consequences'],
+      fallback:
+          'Potential injury, property damage, operational disruption or environmental impact depending on exposure.',
+    );
+
+    final immediateControls = readHazardField(
+      ['Immediate Controls', 'Immediate Action'],
+      fallback:
+          'Secure the area, communicate the hazard and apply suitable temporary controls until permanent action is completed.',
+    );
+
+    final correctiveAction = readHazardField(
+      ['Corrective Action', 'Action Required'],
+      fallback:
+          'Correct the unsafe condition and verify that the hazard has been effectively controlled.',
+    );
+
+    final preventiveAction = readHazardField(
+      ['Preventive Action', 'Preventive Controls'],
+      fallback:
+          'Review the risk assessment, communicate lessons learned and strengthen preventive controls to avoid recurrence.',
+    );
+
+    final responsiblePerson = readHazardField([
+      'Responsible Person',
+      'Responsible',
+    ], fallback: 'To be assigned');
+
+    final targetDate = readHazardField([
+      'Target Date',
+      'Due Date',
+    ], fallback: 'To be confirmed');
+    final reportNumber = 'HAZ-${hazardNumber.toString().padLeft(4, '0')}';
+
+    final completionDate = readHazardField([
+      'Completion Date',
+      'Closed Date',
+    ], fallback: 'Not completed');
+
+    final closureComments = readHazardField(
+      ['Closure Comments', 'Closure Remarks'],
+      fallback: hazardStatus.toLowerCase().contains('closed')
+          ? 'Hazard closure has been recorded and requires verification.'
+          : 'Hazard remains open pending corrective-action completion.',
+    );
+
+    final effectivenessReview = readHazardField([
+      'Effectiveness Review',
+      'Effectiveness Check',
+    ], fallback: 'Effectiveness review is pending.');
     final List<pw.MemoryImage> hazardPhotos = [];
 
     for (final photoPath in photoPaths) {
@@ -1548,128 +1666,761 @@ class PdfService {
     final formattedDate = DateFormat('dd MMM yyyy').format(DateTime.now());
 
     final formattedTime = DateFormat('HH:mm').format(DateTime.now());
+    PdfColor riskColor(String value) {
+      final normalized = value.toLowerCase();
+
+      if (normalized.contains('critical') ||
+          normalized.contains('extreme') ||
+          normalized.contains('high')) {
+        return red;
+      }
+
+      if (normalized.contains('medium') || normalized.contains('moderate')) {
+        return orange;
+      }
+
+      if (normalized.contains('low')) {
+        return green;
+      }
+
+      return blue;
+    }
+
+    PdfColor statusColor(String value) {
+      final normalized = value.toLowerCase();
+
+      if (normalized.contains('closed') || normalized.contains('completed')) {
+        return green;
+      }
+
+      if (normalized.contains('overdue')) {
+        return red;
+      }
+
+      if (normalized.contains('open') || normalized.contains('progress')) {
+        return orange;
+      }
+
+      return blue;
+    }
+
+    pw.Widget smallHeaderLine(String label, String value) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 3),
+        child: pw.RichText(
+          text: pw.TextSpan(
+            style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.black),
+            children: [
+              pw.TextSpan(
+                text: '$label: ',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+              pw.TextSpan(
+                text: value.trim().isEmpty ? 'Not specified' : value.trim(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    pw.Widget informationLabel(String text) {
+      return pw.Container(
+        color: lightGrey,
+        padding: const pw.EdgeInsets.all(6),
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+    }
+
+    pw.Widget informationValue(String text) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.all(6),
+        child: pw.Text(
+          text.trim().isEmpty ? 'Not specified' : text.trim(),
+          style: const pw.TextStyle(fontSize: 7),
+        ),
+      );
+    }
+
+    pw.Widget sectionHeading(String title) {
+      return pw.Container(
+        width: double.infinity,
+        padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        color: navy,
+        child: pw.Text(
+          title,
+          style: pw.TextStyle(
+            color: PdfColors.white,
+            fontSize: 9,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+      );
+    }
+
+    pw.Widget summaryCard({
+      required String label,
+      required String value,
+      required PdfColor color,
+    }) {
+      return pw.Container(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 7),
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: color, width: 0.8),
+          borderRadius: pw.BorderRadius.circular(3),
+        ),
+        child: pw.Row(
+          children: [
+            pw.Container(width: 6, height: 26, color: color),
+            pw.SizedBox(width: 7),
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    value.trim().isEmpty ? 'N/A' : value,
+                    style: pw.TextStyle(
+                      color: color,
+                      fontSize: 10,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.Text(label, style: const pw.TextStyle(fontSize: 6)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget detailBox({
+      required String title,
+      required String value,
+      required PdfColor accent,
+    }) {
+      return pw.Container(
+        width: double.infinity,
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: border, width: 0.7),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Container(
+              width: double.infinity,
+              color: lightBlue,
+              padding: const pw.EdgeInsets.symmetric(
+                horizontal: 7,
+                vertical: 5,
+              ),
+              child: pw.Text(
+                title,
+                style: pw.TextStyle(
+                  color: accent,
+                  fontSize: 8,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
+                value.trim().isEmpty ? 'Not specified' : value,
+                style: const pw.TextStyle(fontSize: 8, lineSpacing: 2),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget reportHeader() {
+      return pw.Container(
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: navy, width: 1.2),
+        ),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Expanded(
+              flex: 2,
+              child: pw.Container(
+                color: navy,
+                padding: const pw.EdgeInsets.all(10),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'SENTINEL HSE AI',
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 17,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(height: 3),
+                    pw.Text(
+                      'Intelligent Safety Management',
+                      style: const pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 7,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            pw.Expanded(
+              flex: 4,
+              child: pw.Container(
+                padding: const pw.EdgeInsets.all(10),
+                alignment: pw.Alignment.center,
+                child: pw.Column(
+                  children: [
+                    pw.Text(
+                      'HAZARD OBSERVATION AND CORRECTIVE ACTION REPORT',
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        color: navy,
+                        fontSize: 15,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(height: 3),
+                    pw.Text(
+                      'Hazard Identification, Risk Screening, Action Tracking and Closure',
+                      textAlign: pw.TextAlign.center,
+                      style: const pw.TextStyle(fontSize: 7.5),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            pw.Expanded(
+              flex: 2,
+              child: pw.Container(
+                color: lightBlue,
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    smallHeaderLine('Report No.', reportNumber),
+                    smallHeaderLine(
+                      'Generated',
+                      '$formattedDate, $formattedTime',
+                    ),
+                    smallHeaderLine('Revision', 'Rev. 0'),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget continuationHeader() {
+      return pw.Container(
+        margin: const pw.EdgeInsets.only(bottom: 7),
+        padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+        decoration: pw.BoxDecoration(
+          border: pw.Border(bottom: pw.BorderSide(color: navy, width: 0.8)),
+        ),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              'SENTINEL HSE AI — HAZARD OBSERVATION REPORT',
+              style: pw.TextStyle(
+                color: navy,
+                fontSize: 7,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.Text(reportNumber, style: const pw.TextStyle(fontSize: 6.5)),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget footer(pw.Context context) {
+      return pw.Container(
+        margin: const pw.EdgeInsets.only(top: 7),
+        padding: const pw.EdgeInsets.only(top: 4),
+        decoration: pw.BoxDecoration(
+          border: pw.Border(top: pw.BorderSide(color: border, width: 0.6)),
+        ),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              'Sentinel HSE AI | $reportNumber | Rev. 0',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+            pw.Text(
+              'Page ${context.pageNumber} of ${context.pagesCount}',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget photoCard({
+      required pw.MemoryImage image,
+      required int number,
+      required int total,
+    }) {
+      return pw.Container(
+        width: double.infinity,
+        padding: const pw.EdgeInsets.all(8),
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: border, width: 0.7),
+          borderRadius: pw.BorderRadius.circular(4),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(
+              'Hazard Evidence Photo $number of $total',
+              style: pw.TextStyle(
+                color: navy,
+                fontSize: 8,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 6),
+            pw.Container(
+              width: double.infinity,
+              height: 245,
+              alignment: pw.Alignment.center,
+              child: pw.Image(image, fit: pw.BoxFit.contain),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget signOffHeader(String text) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.all(5),
+        child: pw.Text(
+          text,
+          textAlign: pw.TextAlign.center,
+          style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+    }
+
+    pw.Widget signOffCell({String name = ''}) {
+      return pw.Container(
+        height: 60,
+        padding: const pw.EdgeInsets.all(6),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          mainAxisAlignment: pw.MainAxisAlignment.end,
+          children: [
+            pw.Text(
+              'Name: ${name.trim().isEmpty ? '______________________________' : name}',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+            pw.SizedBox(height: 5),
+            pw.Text(
+              'Signature: __________________________',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+            pw.SizedBox(height: 5),
+            pw.Text(
+              'Date: _______________________________',
+              style: const pw.TextStyle(fontSize: 6),
+            ),
+          ],
+        ),
+      );
+    }
 
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.fromLTRB(32, 48, 32, 32),
-        build: (context) {
-          return [
-            pw.Center(
-              child: pw.Text(
-                'SENTINEL HSE AI',
-                style: pw.TextStyle(
-                  fontSize: 24,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ),
-            pw.SizedBox(height: 8),
-            pw.Center(
-              child: pw.Text(
-                'Hazard Report',
-                style: pw.TextStyle(
-                  fontSize: 18,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ),
-            pw.SizedBox(height: 24),
-            pw.Table(
-              border: pw.TableBorder.all(color: PdfColors.grey400),
-              columnWidths: const {
-                0: pw.FlexColumnWidth(1.2),
-                1: pw.FlexColumnWidth(2.8),
-              },
-              children: [
-                _reportRow('Hazard Number', hazardNumber.toString()),
-                _reportRow('Date', formattedDate),
-                _reportRow('Time', formattedTime),
-              ],
-            ),
-            pw.SizedBox(height: 24),
-            pw.Text(
-              'Hazard Details',
-              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 10),
-            ...visibleHazardData
-                .split('\n')
-                .map((line) => line.trim())
-                .where((line) => line.isNotEmpty)
-                .map(
-                  (line) => pw.Container(
-                    width: double.infinity,
-                    padding: const pw.EdgeInsets.all(10),
-                    margin: const pw.EdgeInsets.only(bottom: 4),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border.all(color: PdfColors.grey400),
-                      borderRadius: pw.BorderRadius.circular(4),
-                    ),
-                    child: pw.Text(
-                      line,
-                      style: const pw.TextStyle(fontSize: 11, lineSpacing: 3),
-                    ),
-                  ),
-                ),
-            pw.SizedBox(height: 24),
+        margin: const pw.EdgeInsets.fromLTRB(28, 42, 28, 28),
+        header: (context) {
+          if (context.pageNumber == 1) {
+            return pw.SizedBox();
+          }
 
-            if (hazardPhotos.isNotEmpty) ...[
-              pw.Text(
-                'Hazard Evidence Photos',
-                style: pw.TextStyle(
-                  fontSize: 16,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 10),
-
-              for (int index = 0; index < hazardPhotos.length; index++) ...[
-                pw.Text(
-                  'Photo ${index + 1} of ${hazardPhotos.length}',
-                  style: pw.TextStyle(
-                    fontSize: 12,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 6),
-                pw.Container(
-                  width: double.infinity,
-                  height: 260,
-                  alignment: pw.Alignment.center,
-                  padding: const pw.EdgeInsets.all(8),
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.grey400),
-                    borderRadius: pw.BorderRadius.circular(6),
-                  ),
-                  child: pw.Image(hazardPhotos[index], fit: pw.BoxFit.contain),
-                ),
-                pw.SizedBox(height: 18),
-              ],
-            ],
-
-            pw.SizedBox(height: 30),
-            pw.Text(
-              'Prepared By',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 30),
-            pw.Container(
-              width: 200,
-              decoration: const pw.BoxDecoration(
-                border: pw.Border(
-                  bottom: pw.BorderSide(color: PdfColors.black),
-                ),
-              ),
-            ),
-          ];
+          return continuationHeader();
         },
+        footer: footer,
+        build: (context) => [
+          reportHeader(),
+          pw.SizedBox(height: 10),
+
+          pw.Row(
+            children: [
+              pw.Expanded(
+                child: summaryCard(
+                  label: 'Risk Level',
+                  value: hazardRiskLevel,
+                  color: riskColor(hazardRiskLevel),
+                ),
+              ),
+              pw.SizedBox(width: 6),
+              pw.Expanded(
+                child: summaryCard(
+                  label: 'Hazard Category',
+                  value: hazardCategory,
+                  color: blue,
+                ),
+              ),
+              pw.SizedBox(width: 6),
+              pw.Expanded(
+                child: summaryCard(
+                  label: 'Current Status',
+                  value: hazardStatus,
+                  color: statusColor(hazardStatus),
+                ),
+              ),
+              pw.SizedBox(width: 6),
+              pw.Expanded(
+                child: summaryCard(
+                  label: 'Evidence Photos',
+                  value: hazardPhotos.length.toString(),
+                  color: green,
+                ),
+              ),
+            ],
+          ),
+
+          pw.SizedBox(height: 12),
+          sectionHeading('1. Hazard Report Information'),
+          pw.SizedBox(height: 6),
+
+          pw.Table(
+            border: pw.TableBorder.all(color: border, width: 0.7),
+            columnWidths: const {
+              0: pw.FixedColumnWidth(85),
+              1: pw.FlexColumnWidth(2),
+              2: pw.FixedColumnWidth(85),
+              3: pw.FlexColumnWidth(2),
+            },
+            children: [
+              pw.TableRow(
+                children: [
+                  informationLabel('Report Number'),
+                  informationValue(reportNumber),
+                  informationLabel('Revision'),
+                  informationValue('Rev. 0'),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Location'),
+                  informationValue(hazardLocation),
+                  informationLabel('Category'),
+                  informationValue(hazardCategory),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Reported By'),
+                  informationValue(reportedBy),
+                  informationLabel('Status'),
+                  informationValue(hazardStatus),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Generated'),
+                  informationValue('$formattedDate, $formattedTime'),
+                  informationLabel('Evidence Photos'),
+                  informationValue(hazardPhotos.length.toString()),
+                ],
+              ),
+            ],
+          ),
+
+          pw.SizedBox(height: 12),
+          sectionHeading('2. Hazard Observation and Exposure'),
+          pw.SizedBox(height: 6),
+
+          detailBox(
+            title: 'Hazard Description',
+            value: hazardDescription,
+            accent: red,
+          ),
+
+          pw.SizedBox(height: 7),
+
+          detailBox(
+            title: 'Persons Potentially Exposed',
+            value: personsExposed,
+            accent: orange,
+          ),
+
+          pw.SizedBox(height: 7),
+
+          detailBox(
+            title: 'Potential Consequences',
+            value: potentialConsequences,
+            accent: red,
+          ),
+
+          pw.SizedBox(height: 12),
+          sectionHeading('3. Initial Risk Screening'),
+          pw.SizedBox(height: 6),
+
+          pw.Table(
+            border: pw.TableBorder.all(color: border, width: 0.7),
+            columnWidths: const {
+              0: pw.FixedColumnWidth(105),
+              1: pw.FlexColumnWidth(),
+            },
+            children: [
+              pw.TableRow(
+                children: [
+                  informationLabel('Initial Risk Level'),
+                  pw.Container(
+                    color: riskColor(hazardRiskLevel),
+                    padding: const pw.EdgeInsets.all(6),
+                    child: pw.Text(
+                      hazardRiskLevel,
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 7,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Risk Owner'),
+                  informationValue(responsiblePerson),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Target Date'),
+                  informationValue(targetDate),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Residual Risk'),
+                  informationValue(
+                    'To be reassessed after corrective and preventive controls are implemented.',
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          pw.SizedBox(height: 12),
+          sectionHeading('4. Control and Action Plan'),
+          pw.SizedBox(height: 6),
+
+          detailBox(
+            title: 'Immediate Controls / Containment',
+            value: immediateControls,
+            accent: orange,
+          ),
+
+          pw.SizedBox(height: 7),
+
+          detailBox(
+            title: 'Corrective Action',
+            value: correctiveAction,
+            accent: blue,
+          ),
+
+          pw.SizedBox(height: 7),
+
+          detailBox(
+            title: 'Preventive Action',
+            value: preventiveAction,
+            accent: green,
+          ),
+
+          pw.SizedBox(height: 8),
+
+          pw.Table(
+            border: pw.TableBorder.all(color: border, width: 0.7),
+            columnWidths: const {
+              0: pw.FlexColumnWidth(2),
+              1: pw.FlexColumnWidth(1.5),
+              2: pw.FlexColumnWidth(1.5),
+              3: pw.FlexColumnWidth(1.3),
+            },
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: blue),
+                children:
+                    [
+                      'Responsible Person',
+                      'Target Date',
+                      'Completion Date',
+                      'Status',
+                    ].map((heading) {
+                      return pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(
+                          heading,
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 6.5,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+              ),
+              pw.TableRow(
+                children: [
+                  informationValue(responsiblePerson),
+                  informationValue(targetDate),
+                  informationValue(completionDate),
+                  pw.Container(
+                    color: statusColor(hazardStatus),
+                    padding: const pw.EdgeInsets.all(6),
+                    child: pw.Text(
+                      hazardStatus,
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 7,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          if (hazardPhotos.isNotEmpty) ...[
+            pw.NewPage(),
+            sectionHeading('5. Photographic Evidence'),
+            pw.SizedBox(height: 8),
+
+            for (int index = 0; index < hazardPhotos.length; index++) ...[
+              photoCard(
+                image: hazardPhotos[index],
+                number: index + 1,
+                total: hazardPhotos.length,
+              ),
+              pw.SizedBox(height: 12),
+            ],
+          ],
+
+          pw.SizedBox(height: 10),
+          sectionHeading('6. Closure Verification and Effectiveness Review'),
+          pw.SizedBox(height: 7),
+
+          detailBox(
+            title: 'Closure Comments / Verification Remarks',
+            value: closureComments,
+            accent: blue,
+          ),
+
+          pw.SizedBox(height: 7),
+
+          detailBox(
+            title: 'Effectiveness Review',
+            value: effectivenessReview,
+            accent: green,
+          ),
+
+          pw.SizedBox(height: 8),
+
+          pw.Table(
+            border: pw.TableBorder.all(color: border, width: 0.7),
+            columnWidths: const {
+              0: pw.FixedColumnWidth(110),
+              1: pw.FlexColumnWidth(),
+            },
+            children: [
+              pw.TableRow(
+                children: [
+                  informationLabel('Completion Date'),
+                  informationValue(completionDate),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Closure Status'),
+                  informationValue(hazardStatus),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  informationLabel('Closure Decision'),
+                  informationValue(
+                    hazardStatus.toLowerCase().contains('closed') ||
+                            hazardStatus.toLowerCase().contains('completed')
+                        ? 'Closure recorded. Verify control effectiveness before final approval.'
+                        : 'Hazard remains open pending corrective-action completion and verification.',
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          pw.SizedBox(height: 10),
+
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(8),
+            decoration: pw.BoxDecoration(
+              color: PdfColor.fromInt(0xFFFFF4E5),
+              border: pw.Border.all(color: orange, width: 0.8),
+            ),
+            child: pw.Text(
+              'Review Requirement: The reported hazard, risk level and proposed controls must be reviewed by a competent supervisor or HSE professional. Closure must be supported by objective evidence and an effectiveness check confirming that the risk has been adequately controlled.',
+              style: const pw.TextStyle(fontSize: 7),
+            ),
+          ),
+
+          pw.SizedBox(height: 12),
+
+          pw.Table(
+            border: pw.TableBorder.all(color: border, width: 0.7),
+            columnWidths: const {
+              0: pw.FlexColumnWidth(),
+              1: pw.FlexColumnWidth(),
+              2: pw.FlexColumnWidth(),
+            },
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: lightGrey),
+                children: [
+                  signOffHeader('Reported / Prepared By'),
+                  signOffHeader('Reviewed By'),
+                  signOffHeader('Approved By'),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  signOffCell(
+                    name: reportedBy == 'Not specified' ? '' : reportedBy,
+                  ),
+                  signOffCell(),
+                  signOffCell(),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
     );
 
-    await Printing.layoutPdf(
-      name: 'Sentinel_HSE_Hazard_$hazardNumber.pdf',
-      onLayout: (format) async => pdf.save(),
+    await Printing.sharePdf(
+      bytes: await pdf.save(),
+      filename: 'Sentinel_HSE_$reportNumber.pdf',
     );
   }
 
@@ -3638,21 +4389,6 @@ class PdfService {
     await Printing.sharePdf(
       bytes: await pdf.save(),
       filename: 'Sentinel_HSE_$reportNumber.pdf',
-    );
-  }
-
-  static pw.TableRow _reportRow(String label, String value) {
-    return pw.TableRow(
-      children: [
-        pw.Padding(
-          padding: const pw.EdgeInsets.all(8),
-          child: pw.Text(
-            label,
-            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-          ),
-        ),
-        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(value)),
-      ],
     );
   }
 }
