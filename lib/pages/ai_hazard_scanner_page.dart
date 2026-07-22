@@ -17,7 +17,8 @@ class AIHazardScannerPage extends StatefulWidget {
 }
 
 class _AIHazardScannerPageState extends State<AIHazardScannerPage> {
-  String inspector = "Ian Kuteesa";
+  String inspector = "Not specified";
+  final TextEditingController inspectorController = TextEditingController();
   String location = "Not specified";
   final TextEditingController locationController = TextEditingController();
   String result = "No image analyzed yet.";
@@ -74,7 +75,15 @@ class _AIHazardScannerPageState extends State<AIHazardScannerPage> {
       return;
     }
 
+    final enteredInspector = inspectorController.text.trim();
     final enteredLocation = locationController.text.trim();
+
+    if (enteredInspector.isEmpty) {
+      setState(() {
+        result = 'Please enter the inspector name first.';
+      });
+      return;
+    }
 
     if (enteredLocation.isEmpty) {
       setState(() {
@@ -83,6 +92,7 @@ class _AIHazardScannerPageState extends State<AIHazardScannerPage> {
       return;
     }
 
+    inspector = enteredInspector;
     location = enteredLocation;
     FocusScope.of(context).unfocus();
 
@@ -181,6 +191,31 @@ Open
               const Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
+                  'Inspector Name',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              TextField(
+                controller: inspectorController,
+                textInputAction: TextInputAction.next,
+                onTapOutside: (_) {
+                  FocusScope.of(context).unfocus();
+                },
+                decoration: const InputDecoration(
+                  hintText: 'Enter inspector name',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
                   'Hazard Location',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
@@ -190,6 +225,13 @@ Open
 
               TextField(
                 controller: locationController,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) {
+                  FocusScope.of(context).unfocus();
+                },
+                onTapOutside: (_) {
+                  FocusScope.of(context).unfocus();
+                },
                 decoration: const InputDecoration(
                   hintText: 'Enter hazard location',
                   border: OutlineInputBorder(),
@@ -232,12 +274,12 @@ Open
                         structuredResult == null
                     ? null
                     : () async {
-                        await PdfService.generateHazardReport(
+                        await PdfService.generateAIHazardScannerReport(
                           inspectionId: currentInspectionId!,
                           inspector: inspector,
                           location: location,
-                          analysis: rawAnalysis,
-                          imageFiles: [selectedImage!],
+                          result: structuredResult!,
+                          imageFile: selectedImage!,
                         );
                       },
                 icon: const Icon(Icons.picture_as_pdf),

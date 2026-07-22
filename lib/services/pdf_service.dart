@@ -4,9 +4,687 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../models/hazard_analysis_result.dart';
 import 'storage_service.dart';
 
 class PdfService {
+  static Future<void> generateAIHazardScannerReport({
+    required String inspectionId,
+    required String inspector,
+    required String location,
+    required HazardAnalysisResult result,
+    required File imageFile,
+  }) async {
+    final now = DateTime.now();
+    final pdf = pw.Document();
+
+    final navy = PdfColor.fromInt(0xFF123B5D);
+    final blue = PdfColor.fromInt(0xFF1D6FA5);
+    final lightBlue = PdfColor.fromInt(0xFFEAF3F8);
+    final lightGrey = PdfColor.fromInt(0xFFF4F6F8);
+    final border = PdfColor.fromInt(0xFFB7C4CE);
+    final green = PdfColor.fromInt(0xFF2E8B57);
+    final orange = PdfColor.fromInt(0xFFE58C24);
+    final red = PdfColor.fromInt(0xFFC94C4C);
+    final darkGrey = PdfColors.grey800;
+
+    final reportNumber = inspectionId.trim().isEmpty
+        ? 'HAZ-${DateFormat('yyyyMMdd-HHmmss').format(now)}'
+        : inspectionId.trim();
+
+    final formattedDate = DateFormat('dd MMM yyyy').format(now);
+    final formattedTime = DateFormat('HH:mm').format(now);
+
+    final evidenceImage = pw.MemoryImage(await imageFile.readAsBytes());
+
+    PdfColor riskColor(String riskLevel) {
+      final normalized = riskLevel.toLowerCase();
+
+      if (normalized.contains('critical') || normalized.contains('high')) {
+        return red;
+      }
+
+      if (normalized.contains('medium')) {
+        return orange;
+      }
+
+      if (normalized.contains('low')) {
+        return green;
+      }
+
+      return PdfColors.grey600;
+    }
+
+    List<String> safeItems(List<String> items) {
+      final cleaned = items
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
+
+      return cleaned.isEmpty ? ['Not specified'] : cleaned;
+    }
+
+    pw.Widget bulletList(List<String> items) {
+      final values = safeItems(items);
+
+      return pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: values.map((item) {
+          return pw.Padding(
+            padding: const pw.EdgeInsets.only(bottom: 4),
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  '• ',
+                  style: pw.TextStyle(
+                    fontSize: 8,
+                    fontWeight: pw.FontWeight.bold,
+                    color: blue,
+                  ),
+                ),
+                pw.Expanded(
+                  child: pw.Text(item, style: const pw.TextStyle(fontSize: 8)),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      );
+    }
+
+    pw.Widget sectionHeading(String title) {
+      return pw.Container(
+        width: double.infinity,
+        padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: pw.BoxDecoration(
+          color: navy,
+          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
+        ),
+        child: pw.Text(
+          title,
+          style: pw.TextStyle(
+            color: PdfColors.white,
+            fontSize: 9,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+      );
+    }
+
+    pw.Widget informationLabel(String text) {
+      return pw.Container(
+        color: lightGrey,
+        padding: const pw.EdgeInsets.all(6),
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+    }
+
+    pw.Widget informationValue(String text) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.all(6),
+        child: pw.Text(
+          text.trim().isEmpty ? 'Not specified' : text.trim(),
+          style: const pw.TextStyle(fontSize: 7),
+        ),
+      );
+    }
+
+    pw.Widget summaryCard({
+      required String label,
+      required String value,
+      required PdfColor accent,
+    }) {
+      return pw.Expanded(
+        child: pw.Container(
+          padding: const pw.EdgeInsets.all(8),
+          decoration: pw.BoxDecoration(
+            color: lightGrey,
+            border: pw.Border.all(color: border, width: 0.7),
+          ),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Container(width: 24, height: 3, color: accent),
+              pw.SizedBox(height: 5),
+              pw.Text(
+                value,
+                style: pw.TextStyle(
+                  fontSize: 11,
+                  fontWeight: pw.FontWeight.bold,
+                  color: darkGrey,
+                ),
+              ),
+              pw.SizedBox(height: 2),
+              pw.Text(
+                label,
+                style: const pw.TextStyle(
+                  fontSize: 6.5,
+                  color: PdfColors.grey700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    pw.Widget reportHeader(pw.Context context) {
+      return pw.Container(
+        margin: const pw.EdgeInsets.only(bottom: 10),
+        padding: const pw.EdgeInsets.only(bottom: 6),
+        decoration: pw.BoxDecoration(
+          border: pw.Border(bottom: pw.BorderSide(color: border, width: 0.8)),
+        ),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              'SENTINEL HSE AI — HAZARD IDENTIFICATION REPORT',
+              style: pw.TextStyle(
+                color: navy,
+                fontSize: 7,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.Text(
+              '$reportNumber | Rev. 0',
+              style: const pw.TextStyle(
+                fontSize: 6.5,
+                color: PdfColors.grey700,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget reportFooter(pw.Context context) {
+      return pw.Container(
+        margin: const pw.EdgeInsets.only(top: 8),
+        padding: const pw.EdgeInsets.only(top: 5),
+        decoration: pw.BoxDecoration(
+          border: pw.Border(top: pw.BorderSide(color: border, width: 0.7)),
+        ),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              'Sentinel HSE AI | Intelligent Safety Management',
+              style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey700),
+            ),
+            pw.Text(
+              'Page ${context.pageNumber} of ${context.pagesCount}',
+              style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey700),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final actionItems = <String>[
+      ...safeItems(result.correctiveActions),
+      ...safeItems(result.preventiveActions),
+    ];
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.fromLTRB(32, 28, 32, 28),
+        header: reportHeader,
+        footer: reportFooter,
+        build: (context) {
+          return [
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.all(14),
+              decoration: pw.BoxDecoration(
+                color: lightBlue,
+                border: pw.Border.all(color: blue, width: 1),
+              ),
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Container(
+                    width: 72,
+                    padding: const pw.EdgeInsets.all(8),
+                    decoration: pw.BoxDecoration(
+                      color: navy,
+                      borderRadius: const pw.BorderRadius.all(
+                        pw.Radius.circular(3),
+                      ),
+                    ),
+                    child: pw.Column(
+                      children: [
+                        pw.Text(
+                          'SENTINEL',
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 11,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.Text(
+                          'HSE AI',
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 9,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(width: 12),
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'AI HAZARD IDENTIFICATION & RISK ASSESSMENT',
+                          style: pw.TextStyle(
+                            color: navy,
+                            fontSize: 14,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          'Hazard Observation, Initial Risk Screening and Recommended Control Report',
+                          style: const pw.TextStyle(
+                            fontSize: 8,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            pw.SizedBox(height: 10),
+
+            pw.Table(
+              border: pw.TableBorder.all(color: border, width: 0.7),
+              columnWidths: const {
+                0: pw.FlexColumnWidth(1.2),
+                1: pw.FlexColumnWidth(2),
+                2: pw.FlexColumnWidth(1.2),
+                3: pw.FlexColumnWidth(2),
+              },
+              children: [
+                pw.TableRow(
+                  children: [
+                    informationLabel('Report Number'),
+                    informationValue(reportNumber),
+                    informationLabel('Revision'),
+                    informationValue('Rev. 0'),
+                  ],
+                ),
+                pw.TableRow(
+                  children: [
+                    informationLabel('Inspector'),
+                    informationValue(inspector),
+                    informationLabel('Report Status'),
+                    informationValue('Open — Review Required'),
+                  ],
+                ),
+                pw.TableRow(
+                  children: [
+                    informationLabel('Location'),
+                    informationValue(location),
+                    informationLabel('Generated'),
+                    informationValue('$formattedDate, $formattedTime'),
+                  ],
+                ),
+                pw.TableRow(
+                  children: [
+                    informationLabel('Hazard Category'),
+                    informationValue(result.hazardCategory),
+                    informationLabel('Assessment Method'),
+                    informationValue('AI-assisted visual screening'),
+                  ],
+                ),
+              ],
+            ),
+
+            pw.SizedBox(height: 10),
+
+            pw.Row(
+              children: [
+                summaryCard(
+                  label: 'Initial Risk Level',
+                  value: result.riskLevel,
+                  accent: riskColor(result.riskLevel),
+                ),
+                pw.SizedBox(width: 8),
+                summaryCard(
+                  label: 'Likelihood',
+                  value: result.likelihood,
+                  accent: orange,
+                ),
+                pw.SizedBox(width: 8),
+                summaryCard(
+                  label: 'Severity',
+                  value: result.severity,
+                  accent: red,
+                ),
+                pw.SizedBox(width: 8),
+                summaryCard(
+                  label: 'AI Confidence',
+                  value: '${result.confidenceScore}%',
+                  accent: blue,
+                ),
+              ],
+            ),
+
+            pw.SizedBox(height: 12),
+            sectionHeading('1. Photographic Evidence'),
+            pw.SizedBox(height: 7),
+
+            pw.Container(
+              width: double.infinity,
+              height: 250,
+              padding: const pw.EdgeInsets.all(6),
+              decoration: pw.BoxDecoration(
+                color: lightGrey,
+                border: pw.Border.all(color: border, width: 0.8),
+              ),
+              child: pw.Image(evidenceImage, fit: pw.BoxFit.contain),
+            ),
+
+            pw.SizedBox(height: 4),
+            pw.Text(
+              'Evidence Photo 1 of 1 — Image used for AI-assisted hazard screening.',
+              style: const pw.TextStyle(
+                fontSize: 6.5,
+                color: PdfColors.grey700,
+              ),
+            ),
+
+            pw.SizedBox(height: 12),
+            sectionHeading('2. Identified Hazards'),
+            pw.SizedBox(height: 7),
+            bulletList(result.hazards),
+
+            pw.SizedBox(height: 12),
+            sectionHeading('3. Initial Risk Evaluation'),
+            pw.SizedBox(height: 7),
+
+            pw.Table(
+              border: pw.TableBorder.all(color: border, width: 0.7),
+              columnWidths: const {
+                0: pw.FlexColumnWidth(1.4),
+                1: pw.FlexColumnWidth(2),
+                2: pw.FlexColumnWidth(1.4),
+                3: pw.FlexColumnWidth(2),
+              },
+              children: [
+                pw.TableRow(
+                  children: [
+                    informationLabel('Likelihood'),
+                    informationValue(result.likelihood),
+                    informationLabel('Severity'),
+                    informationValue(result.severity),
+                  ],
+                ),
+                pw.TableRow(
+                  children: [
+                    informationLabel('Initial Risk Level'),
+                    pw.Container(
+                      color: riskColor(result.riskLevel),
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        result.riskLevel,
+                        style: pw.TextStyle(
+                          color: PdfColors.white,
+                          fontSize: 7,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    informationLabel('Residual Risk'),
+                    informationValue(
+                      'To be reassessed after controls are implemented',
+                    ),
+                  ],
+                ),
+                pw.TableRow(
+                  children: [
+                    informationLabel('Persons Potentially Exposed'),
+                    informationValue(
+                      'To be confirmed by the competent site reviewer',
+                    ),
+                    informationLabel('Risk Owner'),
+                    informationValue('To be assigned'),
+                  ],
+                ),
+              ],
+            ),
+
+            pw.SizedBox(height: 12),
+            sectionHeading('4. Immediate Actions Required'),
+            pw.SizedBox(height: 7),
+            bulletList(result.immediateActions),
+
+            pw.SizedBox(height: 12),
+            sectionHeading('5. Corrective Actions'),
+            pw.SizedBox(height: 7),
+            bulletList(result.correctiveActions),
+
+            pw.SizedBox(height: 12),
+            sectionHeading('6. Preventive Controls'),
+            pw.SizedBox(height: 7),
+            bulletList(result.preventiveActions),
+
+            pw.SizedBox(height: 12),
+            sectionHeading('7. PPE and Permit Requirements'),
+            pw.SizedBox(height: 7),
+
+            pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Expanded(
+                  child: pw.Container(
+                    padding: const pw.EdgeInsets.all(8),
+                    decoration: pw.BoxDecoration(
+                      color: lightGrey,
+                      border: pw.Border.all(color: border, width: 0.7),
+                    ),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'Required PPE',
+                          style: pw.TextStyle(
+                            fontSize: 8,
+                            fontWeight: pw.FontWeight.bold,
+                            color: navy,
+                          ),
+                        ),
+                        pw.SizedBox(height: 6),
+                        bulletList(result.requiredPpe),
+                      ],
+                    ),
+                  ),
+                ),
+                pw.SizedBox(width: 8),
+                pw.Expanded(
+                  child: pw.Container(
+                    padding: const pw.EdgeInsets.all(8),
+                    decoration: pw.BoxDecoration(
+                      color: lightGrey,
+                      border: pw.Border.all(color: border, width: 0.7),
+                    ),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'Required Permits / Authorizations',
+                          style: pw.TextStyle(
+                            fontSize: 8,
+                            fontWeight: pw.FontWeight.bold,
+                            color: navy,
+                          ),
+                        ),
+                        pw.SizedBox(height: 6),
+                        bulletList(result.requiredPermits),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            pw.SizedBox(height: 12),
+            sectionHeading('8. Corrective and Preventive Action Register'),
+            pw.SizedBox(height: 7),
+
+            pw.Table(
+              border: pw.TableBorder.all(color: border, width: 0.7),
+              columnWidths: const {
+                0: pw.FixedColumnWidth(28),
+                1: pw.FlexColumnWidth(4),
+                2: pw.FlexColumnWidth(1.5),
+                3: pw.FlexColumnWidth(1.3),
+                4: pw.FlexColumnWidth(1.2),
+              },
+              children: [
+                pw.TableRow(
+                  decoration: pw.BoxDecoration(color: blue),
+                  children:
+                      [
+                        'No.',
+                        'Required Action',
+                        'Responsible Person',
+                        'Target Date',
+                        'Status',
+                      ].map((heading) {
+                        return pw.Padding(
+                          padding: const pw.EdgeInsets.all(5),
+                          child: pw.Text(
+                            heading,
+                            textAlign: heading == 'No.'
+                                ? pw.TextAlign.center
+                                : pw.TextAlign.left,
+                            style: pw.TextStyle(
+                              color: PdfColors.white,
+                              fontSize: 6.5,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                ),
+                ...actionItems.asMap().entries.map((entry) {
+                  return pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(
+                          '${entry.key + 1}',
+                          textAlign: pw.TextAlign.center,
+                          style: const pw.TextStyle(fontSize: 6.5),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(
+                          entry.value,
+                          style: const pw.TextStyle(fontSize: 6.5),
+                        ),
+                      ),
+                      informationValue('To be assigned'),
+                      informationValue('To be confirmed'),
+                      informationValue('Open'),
+                    ],
+                  );
+                }),
+              ],
+            ),
+
+            pw.SizedBox(height: 12),
+            sectionHeading('9. Applicable Standards and Requirements'),
+            pw.SizedBox(height: 7),
+            bulletList(result.applicableStandards),
+
+            pw.SizedBox(height: 10),
+
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.all(9),
+              decoration: pw.BoxDecoration(
+                color: PdfColor.fromInt(0xFFFFF4E5),
+                border: pw.Border.all(color: orange, width: 0.8),
+              ),
+              child: pw.Text(
+                'Competent-Person Verification Required: This report is an AI-assisted preliminary hazard screening tool. The identified hazards, risk rating, legal requirements and recommended controls must be reviewed and approved by a competent HSE professional before implementation. The highest reasonably practicable level of the Hierarchy of Controls must be selected. This report does not constitute third-party certification or regulatory approval.',
+                style: const pw.TextStyle(fontSize: 7),
+              ),
+            ),
+
+            pw.SizedBox(height: 12),
+
+            pw.Table(
+              border: pw.TableBorder.all(color: border, width: 0.7),
+              columnWidths: const {
+                0: pw.FlexColumnWidth(1),
+                1: pw.FlexColumnWidth(1),
+                2: pw.FlexColumnWidth(1),
+              },
+              children: [
+                pw.TableRow(
+                  decoration: pw.BoxDecoration(color: navy),
+                  children: ['Prepared By', 'Reviewed By', 'Approved By'].map((
+                    heading,
+                  ) {
+                    return pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        heading,
+                        textAlign: pw.TextAlign.center,
+                        style: pw.TextStyle(
+                          color: PdfColors.white,
+                          fontSize: 7,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                pw.TableRow(
+                  children:
+                      [
+                        'Name: $inspector\n\nSignature: __________________\n\nDate: $formattedDate',
+                        'Name: ______________________\n\nSignature: __________________\n\nDate: ______________________',
+                        'Name: ______________________\n\nSignature: __________________\n\nDate: ______________________',
+                      ].map((value) {
+                        return pw.Padding(
+                          padding: const pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            value,
+                            style: const pw.TextStyle(fontSize: 7),
+                          ),
+                        );
+                      }).toList(),
+                ),
+              ],
+            ),
+          ];
+        },
+      ),
+    );
+
+    await Printing.sharePdf(
+      bytes: await pdf.save(),
+      filename: 'Sentinel_HSE_AI_Hazard_$reportNumber.pdf',
+    );
+  }
+
   static Future<void> generateHazardReport({
     required String inspectionId,
     required String inspector,
