@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/inspection_record.dart';
 import '../services/storage_service.dart';
+import '../services/pdf_service.dart';
 
 class HazardReportPage extends StatelessWidget {
   final InspectionRecord record;
@@ -60,6 +61,44 @@ class HazardReportPage extends StatelessWidget {
             _buildTextSection('Risk Level', record.riskLevel),
             _buildTextSection('Status', record.status),
             _buildTextSection('AI Hazard Analysis', record.analysis),
+            const SizedBox(height: 4),
+
+            FutureBuilder<File?>(
+              future: imageFuture,
+              builder: (context, snapshot) {
+                final hazardResult = record.hazardResult;
+                final recoveredImage = snapshot.data;
+
+                if (hazardResult == null) {
+                  return const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text(
+                        'Professional PDF export is unavailable for this older hazard record because structured AI data was not saved.',
+                      ),
+                    ),
+                  );
+                }
+
+                return ElevatedButton.icon(
+                  onPressed:
+                      snapshot.connectionState == ConnectionState.waiting ||
+                          recoveredImage == null
+                      ? null
+                      : () async {
+                          await PdfService.generateAIHazardScannerReport(
+                            inspectionId: record.inspectionId,
+                            inspector: record.inspector,
+                            location: record.location,
+                            result: hazardResult,
+                            imageFile: recoveredImage,
+                          );
+                        },
+                  icon: const Icon(Icons.picture_as_pdf),
+                  label: const Text('Generate Professional PDF'),
+                );
+              },
+            ),
           ],
         ),
       ),

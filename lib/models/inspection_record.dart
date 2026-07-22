@@ -1,3 +1,5 @@
+import 'hazard_analysis_result.dart';
+
 class InspectionRecord {
   final String inspectionId;
   final String inspector;
@@ -7,7 +9,7 @@ class InspectionRecord {
   final DateTime createdAt;
   final String status;
   final String riskLevel;
-
+  final HazardAnalysisResult? hazardResult;
   InspectionRecord({
     required this.inspectionId,
     required this.inspector,
@@ -18,6 +20,7 @@ class InspectionRecord {
     required this.createdAt,
     this.status = 'Open',
     required this.riskLevel,
+    this.hazardResult,
   }) : imagePaths =
            imagePaths ?? (imagePath.isEmpty ? <String>[] : <String>[imagePath]);
 
@@ -36,6 +39,7 @@ class InspectionRecord {
       'createdAt': createdAt.toIso8601String(),
       'status': status,
       'riskLevel': riskLevel,
+      'hazardResult': hazardResult?.toJson(),
     };
   }
 
@@ -50,7 +54,13 @@ class InspectionRecord {
         : <String>[];
 
     final legacyImagePath = json['imagePath']?.toString() ?? '';
+    final storedHazardResult = json['hazardResult'];
 
+    final hazardResult = storedHazardResult is Map
+        ? HazardAnalysisResult.fromJson(
+            Map<String, dynamic>.from(storedHazardResult),
+          )
+        : null;
     return InspectionRecord(
       inspectionId: json['inspectionId']?.toString() ?? '',
       inspector: json['inspector']?.toString() ?? '',
@@ -63,6 +73,7 @@ class InspectionRecord {
           DateTime.now(),
       status: json['status']?.toString() ?? 'Open',
       riskLevel: json['riskLevel']?.toString() ?? 'Unknown',
+      hazardResult: hazardResult,
     );
   }
 }

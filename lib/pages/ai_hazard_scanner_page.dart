@@ -157,6 +157,7 @@ Open
         imagePath: savedImagePath,
         status: 'Open',
         riskLevel: extractRiskLevel(analysis),
+        hazardResult: structuredAnalysis,
       );
 
       await StorageService.saveHazardRecord(record);

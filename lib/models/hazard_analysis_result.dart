@@ -61,4 +61,20 @@ class HazardAnalysisResult {
           : int.tryParse(rawConfidence?.toString() ?? '') ?? 0,
     );
   }
+  Map<String, dynamic> toJson() {
+    return {
+      'hazardCategory': hazardCategory,
+      'hazards': hazards,
+      'likelihood': likelihood,
+      'severity': severity,
+      'riskLevel': riskLevel,
+      'immediateActions': immediateActions,
+      'correctiveActions': correctiveActions,
+      'preventiveActions': preventiveActions,
+      'requiredPpe': requiredPpe,
+      'requiredPermits': requiredPermits,
+      'applicableStandards': applicableStandards,
+      'confidenceScore': confidenceScore,
+    };
+  }
 }
