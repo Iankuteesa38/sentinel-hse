@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
-
+import '../features/cloud_sync/services/hazard_cloud_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -97,11 +97,13 @@ class StorageService {
   static Future<void> saveHazard(String hazard) async {
     final prefs = await SharedPreferences.getInstance();
 
-    List<String> hazards = prefs.getStringList(hazardKey) ?? [];
+    final hazards = prefs.getStringList(hazardKey) ?? <String>[];
 
     hazards.add(hazard);
 
     await prefs.setStringList(hazardKey, hazards);
+
+    await _ensureStructuredHazardFromText(hazard);
   }
 
   static Future<List<String>> getHazards() async {
@@ -113,6 +115,14 @@ class StorageService {
   static Future<void> saveHazards(List<String> hazards) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(hazardKey, hazards);
+  }
+
+  static Future<void> migrateLegacyTextHazards() async {
+    final legacyHazards = await getHazards();
+
+    for (final hazard in legacyHazards) {
+      await _ensureStructuredHazardFromText(hazard);
+    }
   }
 
   static Future<void> clearHazards() async {
@@ -163,6 +173,11 @@ class StorageService {
         .toList();
 
     await prefs.setStringList(_hazardRecordsKey, encodedRecords);
+    try {
+      await HazardCloudService.upsertRecord(record);
+    } catch (_) {
+      // Local save remains successful when cloud sync is unavailable.
+    }
   }
 
   static Future<List<InspectionRecord>> getHazardRecords() async {
@@ -175,6 +190,74 @@ class StorageService {
 
       return InspectionRecord.fromJson(decoded);
     }).toList();
+  }
+
+  static Future<void> updateHazardRecord(InspectionRecord updatedRecord) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final records = await getHazardRecords();
+
+    final index = records.indexWhere(
+      (record) => record.inspectionId == updatedRecord.inspectionId,
+    );
+
+    if (index == -1) {
+      records.insert(0, updatedRecord);
+    } else {
+      records[index] = updatedRecord;
+    }
+
+    final encodedRecords = records
+        .map((item) => jsonEncode(item.toJson()))
+        .toList();
+
+    await prefs.setStringList(_hazardRecordsKey, encodedRecords);
+    try {
+      await HazardCloudService.upsertRecord(updatedRecord);
+    } catch (_) {
+      // Local update remains successful when cloud sync is unavailable.
+    }
+  }
+
+  static Future<void> deleteHazardRecord(String inspectionId) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final records = await getHazardRecords();
+
+    String deletedAnalysis = '';
+
+    for (final record in records) {
+      if (record.inspectionId == inspectionId) {
+        deletedAnalysis = record.analysis;
+        break;
+      }
+    }
+
+    records.removeWhere((record) => record.inspectionId == inspectionId);
+
+    await prefs.setStringList(
+      _hazardRecordsKey,
+      records.map((item) => jsonEncode(item.toJson())).toList(),
+    );
+
+    final legacyHazards = prefs.getStringList(hazardKey) ?? <String>[];
+
+    legacyHazards.removeWhere((hazard) {
+      final legacyId = _hazardField(hazard, const [
+        'Inspection ID',
+        'Hazard ID',
+        'Report ID',
+      ]);
+
+      final sameId = legacyId.isNotEmpty && legacyId == inspectionId;
+
+      final sameAnalysis =
+          deletedAnalysis.isNotEmpty && hazard.trim() == deletedAnalysis.trim();
+
+      return sameId || sameAnalysis;
+    });
+
+    await prefs.setStringList(hazardKey, legacyHazards);
   }
 
   static Future<void> migrateLegacyHazardRecords() async {
@@ -249,5 +332,124 @@ class StorageService {
         .toList();
 
     await prefs.setStringList(_inspectionRecordsKey, encodedRecords);
+  }
+
+  static Future<void> _ensureStructuredHazardFromText(String hazard) async {
+    final existingRecords = await getHazardRecords();
+
+    final extractedId = _hazardField(hazard, const [
+      'Inspection ID',
+      'Hazard ID',
+      'Report ID',
+    ]);
+
+    if (extractedId.isNotEmpty &&
+        existingRecords.any((record) => record.inspectionId == extractedId)) {
+      return;
+    }
+
+    if (existingRecords.any(
+      (record) => record.analysis.trim() == hazard.trim(),
+    )) {
+      return;
+    }
+
+    final photosText = _hazardField(hazard, const ['Photos', 'Photo']);
+
+    final imagePaths = photosText.isEmpty
+        ? <String>[]
+        : photosText
+              .split('|')
+              .map((path) => path.trim())
+              .where(
+                (path) => path.isNotEmpty && path.toLowerCase() != 'no photo',
+              )
+              .toList();
+
+    final responsiblePerson = _hazardField(hazard, const [
+      'Responsible Person',
+      'ResponsiblePerson',
+    ]);
+
+    final targetDateText = _hazardField(hazard, const ['Target Date']);
+
+    final record = InspectionRecord(
+      inspectionId: extractedId.isNotEmpty
+          ? extractedId
+          : _legacyHazardId(hazard),
+      inspector: _hazardField(hazard, const ['Inspector', 'Reported By']),
+      location: _hazardField(hazard, const ['Location']),
+      analysis: hazard,
+      imagePaths: imagePaths,
+      createdAt:
+          _parseHazardDate(_hazardField(hazard, const ['Date'])) ??
+          DateTime.now(),
+      status: _hazardField(hazard, const ['Status']).isEmpty
+          ? 'Open'
+          : _hazardField(hazard, const ['Status']),
+      riskLevel: _hazardField(hazard, const ['Risk Level']).isEmpty
+          ? 'Unknown'
+          : _hazardField(hazard, const ['Risk Level']),
+      responsiblePerson: responsiblePerson,
+      targetDate: _parseHazardDate(targetDateText),
+    );
+
+    await saveHazardRecord(record);
+  }
+
+  static String _hazardField(String raw, List<String> names) {
+    for (final line in raw.split('\n')) {
+      final trimmed = line.trim();
+
+      for (final name in names) {
+        final prefix = '$name:';
+
+        if (trimmed.toLowerCase().startsWith(prefix.toLowerCase())) {
+          return trimmed.substring(prefix.length).trim();
+        }
+      }
+    }
+
+    return '';
+  }
+
+  static DateTime? _parseHazardDate(String value) {
+    final text = value.trim();
+
+    if (text.isEmpty ||
+        text.toLowerCase() == 'not set' ||
+        text.toLowerCase() == 'n/a') {
+      return null;
+    }
+
+    final isoDate = DateTime.tryParse(text);
+
+    if (isoDate != null) {
+      return isoDate;
+    }
+
+    final parts = text.split('/');
+
+    if (parts.length == 3) {
+      final day = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final year = int.tryParse(parts[2]);
+
+      if (day != null && month != null && year != null) {
+        return DateTime(year, month, day);
+      }
+    }
+
+    return null;
+  }
+
+  static String _legacyHazardId(String hazard) {
+    var hash = 17;
+
+    for (final unit in hazard.codeUnits) {
+      hash = ((hash * 31) + unit) & 0x7fffffff;
+    }
+
+    return 'HZD-LEGACY-$hash';
   }
 }

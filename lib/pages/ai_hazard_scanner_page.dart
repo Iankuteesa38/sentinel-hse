@@ -161,7 +161,6 @@ Open
       );
 
       await StorageService.saveHazardRecord(record);
-      await StorageService.saveHazard(result);
     }
   }
 

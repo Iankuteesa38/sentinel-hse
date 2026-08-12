@@ -1,9 +1,12 @@
+import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../models/risk_assessment_result.dart';
+import '../../branding/models/branding_settings.dart';
+import '../../branding/services/branding_service.dart';
 
 class RiskAssessmentPdfService {
   RiskAssessmentPdfService._();
@@ -22,6 +25,15 @@ class RiskAssessmentPdfService {
   static Future<void> generateReport({
     required RiskAssessmentResult result,
   }) async {
+    final branding = await BrandingService.load();
+
+    final logoFile = await BrandingService.getLogoFile(branding.logoPath);
+
+    final Uint8List? logoBytes = logoFile == null
+        ? null
+        : await logoFile.readAsBytes();
+
+    final brandColor = PdfColor.fromInt(branding.primaryColorValue);
     final now = DateTime.now();
 
     final formattedDate = DateFormat('dd MMM yyyy').format(now);
@@ -58,7 +70,7 @@ class RiskAssessmentPdfService {
             return pw.SizedBox();
           }
 
-          return _continuationHeader(reportNumber);
+          return _continuationHeader(reportNumber, branding, brandColor);
         },
         footer: (context) {
           return _footer(context, reportNumber);
@@ -69,6 +81,9 @@ class RiskAssessmentPdfService {
               reportNumber: reportNumber,
               formattedDate: formattedDate,
               formattedTime: formattedTime,
+              branding: branding,
+              logoBytes: logoBytes,
+              brandColor: brandColor,
             ),
             pw.SizedBox(height: 8),
 
@@ -141,6 +156,9 @@ class RiskAssessmentPdfService {
     required String reportNumber,
     required String formattedDate,
     required String formattedTime,
+    required BrandingSettings branding,
+    required Uint8List? logoBytes,
+    required PdfColor brandColor,
   }) {
     return pw.Container(
       decoration: pw.BoxDecoration(
@@ -152,26 +170,62 @@ class RiskAssessmentPdfService {
           pw.Expanded(
             flex: 2,
             child: pw.Container(
-              color: _navy,
+              color: brandColor,
               padding: const pw.EdgeInsets.all(10),
-              child: pw.Column(
-                mainAxisAlignment: pw.MainAxisAlignment.center,
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
-                  pw.Text(
-                    'SENTINEL HSE AI',
-                    style: pw.TextStyle(
-                      color: PdfColors.white,
-                      fontSize: 18,
-                      fontWeight: pw.FontWeight.bold,
+                  if (logoBytes != null) ...[
+                    pw.Container(
+                      width: 42,
+                      height: 42,
+                      child: pw.Image(
+                        pw.MemoryImage(logoBytes),
+                        fit: pw.BoxFit.contain,
+                      ),
                     ),
-                  ),
-                  pw.SizedBox(height: 3),
-                  pw.Text(
-                    'Intelligent Safety Management',
-                    style: const pw.TextStyle(
-                      color: PdfColors.white,
-                      fontSize: 7,
+                    pw.SizedBox(width: 8),
+                  ],
+                  pw.Expanded(
+                    child: pw.Column(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          branding.companyName.isEmpty
+                              ? 'SENTINEL HSE'
+                              : branding.companyName,
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 15,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        if (branding.projectSiteName.isNotEmpty)
+                          pw.Text(
+                            branding.projectSiteName,
+                            style: const pw.TextStyle(
+                              color: PdfColors.white,
+                              fontSize: 7,
+                            ),
+                          ),
+                        if (branding.clientName.isNotEmpty)
+                          pw.Text(
+                            'Client: ${branding.clientName}',
+                            style: const pw.TextStyle(
+                              color: PdfColors.white,
+                              fontSize: 7,
+                            ),
+                          ),
+                        pw.SizedBox(height: 2),
+                        pw.Text(
+                          'Powered by Sentinel HSE',
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 6,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -994,20 +1048,26 @@ class RiskAssessmentPdfService {
     );
   }
 
-  static pw.Widget _continuationHeader(String reportNumber) {
+  static pw.Widget _continuationHeader(
+    String reportNumber,
+    BrandingSettings branding,
+    PdfColor brandColor,
+  ) {
     return pw.Container(
       margin: const pw.EdgeInsets.only(bottom: 7),
       padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4),
       decoration: pw.BoxDecoration(
-        border: pw.Border(bottom: pw.BorderSide(color: _navy, width: 0.8)),
+        border: pw.Border(bottom: pw.BorderSide(color: brandColor, width: 0.8)),
       ),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
           pw.Text(
-            'SENTINEL HSE AI — TASK RISK ASSESSMENT',
+            branding.companyName.isEmpty
+                ? 'SENTINEL HSE - TASK RISK ASSESSMENT'
+                : '${branding.companyName} - TASK RISK ASSESSMENT',
             style: pw.TextStyle(
-              color: _navy,
+              color: brandColor,
               fontSize: 7,
               fontWeight: pw.FontWeight.bold,
             ),

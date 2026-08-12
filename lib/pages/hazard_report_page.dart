@@ -68,15 +68,27 @@ class HazardReportPage extends StatelessWidget {
               builder: (context, snapshot) {
                 final hazardResult = record.hazardResult;
                 final recoveredImage = snapshot.data;
-
                 if (hazardResult == null) {
-                  return const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text(
-                        'Professional PDF export is unavailable for this older hazard record because structured AI data was not saved.',
-                      ),
-                    ),
+                  return ElevatedButton.icon(
+                    onPressed: () async {
+                      final hazardNumber =
+                          int.tryParse(
+                            record.inspectionId.replaceAll(
+                              RegExp(r'[^0-9]'),
+                              '',
+                            ),
+                          ) ??
+                          record.createdAt.millisecondsSinceEpoch.remainder(
+                            10000,
+                          );
+
+                      await PdfService.generateTextHazardReport(
+                        hazardNumber: hazardNumber,
+                        hazardData: record.analysis,
+                      );
+                    },
+                    icon: const Icon(Icons.picture_as_pdf),
+                    label: const Text('Generate Professional PDF'),
                   );
                 }
 

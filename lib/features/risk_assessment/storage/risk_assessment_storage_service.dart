@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
-
+import '../../cloud_sync/services/operational_report_cloud_service.dart';
 import '../models/risk_assessment_result.dart';
 
 class SavedRiskAssessmentReport {
@@ -21,7 +21,7 @@ class RiskAssessmentStorageService {
   static Future<void> saveReport(RiskAssessmentResult report) async {
     final prefs = await SharedPreferences.getInstance();
     final reports = prefs.getStringList(_storageKey) ?? [];
-
+    final createdAt = DateTime.now();
     reports.insert(
       0,
       jsonEncode({
@@ -58,11 +58,26 @@ class RiskAssessmentStorageService {
         'requiredPermits': report.requiredPermits,
         'emergencyResponse': report.emergencyResponse,
         'applicableStandards': report.applicableStandards,
-        'createdAt': DateTime.now().toIso8601String(),
+        'createdAt': createdAt.toIso8601String(),
       }),
     );
 
     await prefs.setStringList(_storageKey, reports);
+    try {
+      final savedJson = Map<String, dynamic>.from(
+        jsonDecode(reports.first) as Map,
+      );
+
+      await OperationalReportCloudService.syncReport(
+        moduleType: 'risk_assessment',
+        localId: 'RA-${createdAt.microsecondsSinceEpoch}',
+        title: report.task,
+        reportData: savedJson,
+        createdAt: createdAt,
+      );
+    } catch (_) {
+      // Local risk assessment save remains available offline.
+    }
   }
 
   static Future<List<SavedRiskAssessmentReport>> getReports() async {

@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../models/hazard_analysis_result.dart';
+import '../features/branding/services/branding_service.dart';
 import 'storage_service.dart';
 
 class PdfService {
@@ -15,6 +16,13 @@ class PdfService {
     required HazardAnalysisResult result,
     required File imageFile,
   }) async {
+    final branding = await BrandingService.load();
+
+    final logoFile = await BrandingService.getLogoFile(branding.logoPath);
+
+    final logoBytes = logoFile == null ? null : await logoFile.readAsBytes();
+
+    final brandColor = PdfColor.fromInt(branding.primaryColorValue);
     final now = DateTime.now();
     final pdf = pw.Document();
 
@@ -183,9 +191,11 @@ class PdfService {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text(
-              'SENTINEL HSE AI — HAZARD IDENTIFICATION REPORT',
+              branding.companyName.isEmpty
+                  ? 'SENTINEL HSE - HAZARD IDENTIFICATION REPORT'
+                  : '${branding.companyName} - HAZARD IDENTIFICATION REPORT',
               style: pw.TextStyle(
-                color: navy,
+                color: brandColor,
                 fontSize: 7,
                 fontWeight: pw.FontWeight.bold,
               ),
@@ -249,30 +259,63 @@ class PdfService {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Container(
-                    width: 72,
+                    width: 105,
                     padding: const pw.EdgeInsets.all(8),
                     decoration: pw.BoxDecoration(
-                      color: navy,
+                      color: brandColor,
                       borderRadius: const pw.BorderRadius.all(
                         pw.Radius.circular(3),
                       ),
                     ),
                     child: pw.Column(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
                       children: [
-                        pw.Text(
-                          'SENTINEL',
-                          style: pw.TextStyle(
-                            color: PdfColors.white,
-                            fontSize: 11,
-                            fontWeight: pw.FontWeight.bold,
+                        if (logoBytes != null) ...[
+                          pw.Container(
+                            height: 34,
+                            child: pw.Image(
+                              pw.MemoryImage(logoBytes),
+                              fit: pw.BoxFit.contain,
+                            ),
                           ),
-                        ),
+                          pw.SizedBox(height: 4),
+                        ],
                         pw.Text(
-                          'HSE AI',
+                          branding.companyName.isEmpty
+                              ? 'SENTINEL HSE'
+                              : branding.companyName,
+                          textAlign: pw.TextAlign.center,
                           style: pw.TextStyle(
                             color: PdfColors.white,
                             fontSize: 9,
                             fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        if (branding.projectSiteName.isNotEmpty)
+                          pw.Text(
+                            branding.projectSiteName,
+                            textAlign: pw.TextAlign.center,
+                            style: const pw.TextStyle(
+                              color: PdfColors.white,
+                              fontSize: 6,
+                            ),
+                          ),
+                        if (branding.clientName.isNotEmpty)
+                          pw.Text(
+                            'Client: ${branding.clientName}',
+                            textAlign: pw.TextAlign.center,
+                            style: const pw.TextStyle(
+                              color: PdfColors.white,
+                              fontSize: 6,
+                            ),
+                          ),
+                        pw.SizedBox(height: 2),
+                        pw.Text(
+                          'Powered by Sentinel HSE',
+                          textAlign: pw.TextAlign.center,
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 5.5,
                           ),
                         ),
                       ],
@@ -286,7 +329,7 @@ class PdfService {
                         pw.Text(
                           'AI HAZARD IDENTIFICATION & RISK ASSESSMENT',
                           style: pw.TextStyle(
-                            color: navy,
+                            color: brandColor,
                             fontSize: 14,
                             fontWeight: pw.FontWeight.bold,
                           ),
@@ -1473,6 +1516,14 @@ class PdfService {
     required int hazardNumber,
     required String hazardData,
   }) async {
+    final branding = await BrandingService.load();
+
+    final logoFile = await BrandingService.getLogoFile(branding.logoPath);
+
+    final logoBytes = logoFile == null ? null : await logoFile.readAsBytes();
+
+    final brandColor = PdfColor.fromInt(branding.primaryColorValue);
+
     final pdf = pw.Document();
     final navy = PdfColor.fromInt(0xFF123B5D);
     final blue = PdfColor.fromInt(0xFF1D6FA5);
@@ -1849,25 +1900,57 @@ class PdfService {
             pw.Expanded(
               flex: 2,
               child: pw.Container(
-                color: navy,
-                padding: const pw.EdgeInsets.all(10),
+                color: brandColor,
+                padding: const pw.EdgeInsets.all(8),
                 child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  mainAxisAlignment: pw.MainAxisAlignment.center,
                   children: [
+                    if (logoBytes != null) ...[
+                      pw.Container(
+                        height: 34,
+                        child: pw.Image(
+                          pw.MemoryImage(logoBytes),
+                          fit: pw.BoxFit.contain,
+                        ),
+                      ),
+                      pw.SizedBox(height: 4),
+                    ],
                     pw.Text(
-                      'SENTINEL HSE AI',
+                      branding.companyName.isEmpty
+                          ? 'SENTINEL HSE'
+                          : branding.companyName,
+                      textAlign: pw.TextAlign.center,
                       style: pw.TextStyle(
                         color: PdfColors.white,
-                        fontSize: 17,
+                        fontSize: 9,
                         fontWeight: pw.FontWeight.bold,
                       ),
                     ),
-                    pw.SizedBox(height: 3),
+                    if (branding.projectSiteName.isNotEmpty)
+                      pw.Text(
+                        branding.projectSiteName,
+                        textAlign: pw.TextAlign.center,
+                        style: const pw.TextStyle(
+                          color: PdfColors.white,
+                          fontSize: 6,
+                        ),
+                      ),
+                    if (branding.clientName.isNotEmpty)
+                      pw.Text(
+                        'Client: ${branding.clientName}',
+                        textAlign: pw.TextAlign.center,
+                        style: const pw.TextStyle(
+                          color: PdfColors.white,
+                          fontSize: 6,
+                        ),
+                      ),
+                    pw.SizedBox(height: 2),
                     pw.Text(
-                      'Intelligent Safety Management',
+                      'Powered by Sentinel HSE',
+                      textAlign: pw.TextAlign.center,
                       style: const pw.TextStyle(
                         color: PdfColors.white,
-                        fontSize: 7,
+                        fontSize: 5.5,
                       ),
                     ),
                   ],
@@ -1885,7 +1968,7 @@ class PdfService {
                       'HAZARD OBSERVATION AND CORRECTIVE ACTION REPORT',
                       textAlign: pw.TextAlign.center,
                       style: pw.TextStyle(
-                        color: navy,
+                        color: brandColor,
                         fontSize: 15,
                         fontWeight: pw.FontWeight.bold,
                       ),
@@ -1928,15 +2011,19 @@ class PdfService {
         margin: const pw.EdgeInsets.only(bottom: 7),
         padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4),
         decoration: pw.BoxDecoration(
-          border: pw.Border(bottom: pw.BorderSide(color: navy, width: 0.8)),
+          border: pw.Border(
+            bottom: pw.BorderSide(color: brandColor, width: 0.8),
+          ),
         ),
         child: pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text(
-              'SENTINEL HSE AI — HAZARD OBSERVATION REPORT',
+              branding.companyName.isEmpty
+                  ? 'SENTINEL HSE - HAZARD OBSERVATION REPORT'
+                  : '${branding.companyName} - HAZARD OBSERVATION REPORT',
               style: pw.TextStyle(
-                color: navy,
+                color: brandColor,
                 fontSize: 7,
                 fontWeight: pw.FontWeight.bold,
               ),

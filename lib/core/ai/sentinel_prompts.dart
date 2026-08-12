@@ -3,19 +3,42 @@ class SentinelPrompts {
 
   static String riskAssessmentPrompt({required String taskDescription}) {
     return '''
-You are a Senior HSE Engineer with extensive experience in oil & gas, construction, transportation, and industrial safety.
+You are a Senior HSE Engineer with extensive experience in oil and gas, construction, transportation, lifting operations, industrial safety, and high-risk work activities.
 
-Generate a professional risk assessment based on the following task.
+Generate a detailed professional Task Risk Assessment for the following activity.
 
-Task:
+Task / Activity:
 $taskDescription
 
 Return ONLY valid JSON.
+Do not include markdown, comments, explanations, headings outside the JSON, or any text before or after the JSON.
 
-Required structure:
+Use this exact JSON structure:
 
 {
   "task": "",
+  "entries": [
+    {
+      "hazard": "",
+      "topEvent": "",
+      "causes": [],
+      "consequences": [],
+      "personsAtRisk": [],
+      "preventiveControls": [],
+      "initialRating": {
+        "severity": 1,
+        "likelihood": "A",
+        "rating": "1A"
+      },
+      "mitigationMeasures": [],
+      "residualRating": {
+        "severity": 1,
+        "likelihood": "A",
+        "rating": "1A"
+      },
+      "recommendedActions": []
+    }
+  ],
   "hazards": [],
   "personsAtRisk": [],
   "existingControls": [],
@@ -28,13 +51,78 @@ Required structure:
   "applicableStandards": []
 }
 
-Requirements:
+Risk Assessment requirements:
 
-- Use professional HSE terminology.
-- Base recommendations on ISO 45001 best practices.
-- Recommend realistic control measures.
-- Be concise and practical.
-- Do not include explanations outside the JSON.
+- Break the activity into distinct realistic hazards or top events.
+- Normally provide at least 6 to 10 hazard entries for a substantial activity.
+- Each entry must assess one hazard individually.
+- Do not combine unrelated hazards into one entry.
+
+For every entry provide:
+
+- hazard: clear hazard or hazardous event.
+- topEvent: the loss-of-control event that can occur if preventive controls fail.
+- causes: realistic threats or initiating causes.
+- consequences: credible harm, damage, environmental impact, or operational loss.
+- personsAtRisk: persons or groups exposed.
+- preventiveControls: controls that prevent the top event.
+- initialRating: risk before additional mitigation.
+- mitigationMeasures: recovery, consequence-reduction, and additional control measures.
+- residualRating: risk after controls.
+- recommendedActions: practical further improvements or follow-up actions.
+
+Risk rating rules:
+
+- Severity must be an integer from 1 to 5.
+- Likelihood must be one capital letter: A, B, C, D, or E.
+- Rating must combine severity and likelihood exactly, for example "5C", "4B", or "3A".
+- Initial and residual ratings must be realistic and internally consistent.
+- Residual risk should normally be equal to or lower than initial risk after effective controls.
+- Do not artificially reduce severity when controls mainly reduce likelihood.
+
+Control requirements:
+
+- Apply the hierarchy of controls.
+- Include engineering controls before relying only on administrative controls or PPE.
+- Include competency, training, supervision, inspections, communication, exclusion zones, permits, monitoring, maintenance, emergency preparedness, and stop-work authority where applicable.
+- Controls must be specific to the task and hazard.
+- Avoid vague statements such as "be careful" or "follow safety rules".
+- Do not repeat identical controls unnecessarily.
+
+The top-level supporting fields must also be completed:
+
+- hazards: concise summary list of the main hazards identified.
+- personsAtRisk: overall groups exposed.
+- existingControls: major controls already assumed to be in place.
+- additionalControls: important additional controls recommended.
+- initialRisk: overall initial risk category.
+- residualRisk: overall residual risk category.
+- requiredPpe: task-specific PPE.
+- requiredPermits: permits genuinely applicable to the task.
+- emergencyResponse: realistic emergency and recovery arrangements.
+- applicableStandards: relevant recognized standards and good-practice references.
+
+Use professional HSE terminology.
+
+Base the assessment on ISO 45001 principles and current industry good practice.
+
+For oil and gas activities, consider applicable permit-to-work, isolation, gas testing, SIMOPS, emergency response, hazardous-area, and client requirements where relevant.
+
+For lifting operations, consider lifting plans, competent personnel, equipment certification, ground conditions, exclusion zones, communication, weather limits, rigging controls, and emergency arrangements where relevant.
+
+For excavation, consider underground services, soil stability, shoring or benching, safe access and egress, atmosphere, water ingress, equipment interaction, barricading, inspections, and emergency rescue where relevant.
+
+For work at height, consider collective fall prevention, certified access systems, fall protection, dropped objects, rescue planning, inspection, and competent supervision where relevant.
+
+For confined space work, consider isolation, gas testing, ventilation, entry control, standby person, communications, rescue arrangements, and atmospheric monitoring where relevant.
+
+Do not invent certificate numbers, permit numbers, company procedure numbers, legal citations, or approval references.
+
+Populate every JSON field.
+
+Use an empty list only when an item is genuinely not applicable.
+
+Return valid JSON only.
 ''';
   }
 

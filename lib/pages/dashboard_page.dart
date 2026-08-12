@@ -1,5 +1,6 @@
+import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
-import 'inspection_page.dart';
 import 'history_page.dart';
 import 'action_page.dart';
 import 'action_history_page.dart';
@@ -11,10 +12,21 @@ import 'incident_history_page.dart';
 import 'ai_hazard_scanner_page.dart';
 import '../services/storage_service.dart';
 import 'inspection_history_page.dart';
+import '../features/inspection_engine/pages/inspection_template_selection_page.dart';
 import '../features/risk_assessment/pages/risk_assessment_page.dart';
 import '../features/jsa/pages/jsa_page.dart';
 import '../features/toolbox_talk/pages/toolbox_talk_page.dart';
 import '../features/reports_center/pages/reports_center_page.dart';
+import '../features/reports_center/models/report_item.dart';
+import '../features/reports_center/services/reports_center_service.dart';
+import '../features/monthly_hse/pages/monthly_hse_report_page.dart';
+import '../features/branding/models/branding_settings.dart';
+import '../features/branding/services/branding_service.dart';
+import '../features/smart_alerts/pages/smart_alerts_page.dart';
+import 'settings_page.dart';
+import '../features/investigation/pages/investigation_home_page.dart';
+import '../features/team/pages/team_members_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -26,68 +38,103 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   int safetyScore = 98;
   int totalHazards = 0;
+  int hazardLifecycleTotal = 0;
+  int hazardLifecycleClosed = 0;
   int totalIncidents = 0;
   int totalInspections = 0;
   int closedActions = 0;
   int openActions = 0;
   int highRiskInspections = 0;
   int overdueActions = 0;
-  int daysWithoutLTI = 186;
+  int daysWithoutLTI = 0;
+  DateTime? lastLTIDate;
   double trir = 0.18;
   int nearMisses = 0;
   double inspectionScore = 91;
   double complianceRate = 98;
   String safetyForecast = 'Low Risk';
-  final List<int> weeklySafetyScores = [82, 86, 84, 89, 91, 88, 93];
+  List<int> weeklySafetyScores = List.filled(7, 0);
   @override
   void initState() {
     super.initState();
     loadDashboardData();
+    _loadUserName();
+    _loadBranding();
+    _loadLastLTIDate();
   }
 
   Future<void> loadDashboardData() async {
-    final hazards = await StorageService.getHazards();
     final incidents = await StorageService.getIncidents();
     final actions = await StorageService.getActions();
 
     final inspectionRecords = await StorageService.getInspectionRecords();
-    final openHazards = hazards.where((hazard) {
-      return !hazard.toLowerCase().contains('status: closed');
-    }).toList();
+    final unifiedReports = await ReportsCenterService.getAllReports();
+
+    final unifiedInspections = unifiedReports
+        .where((report) => report.type == ReportType.inspection)
+        .toList();
+
+    final unifiedInvestigations = unifiedReports
+        .where((report) => report.type == ReportType.incident)
+        .toList();
+
+    final unifiedHazards = unifiedReports
+        .where((report) => report.type == ReportType.hazard)
+        .toList();
+
+    final scoredInspections = unifiedInspections
+        .where((report) => report.compliancePercentage != null)
+        .toList();
+
+    final double? unifiedInspectionScore = scoredInspections.isEmpty
+        ? null
+        : scoredInspections
+                  .map((report) => report.compliancePercentage!)
+                  .reduce((a, b) => a + b) /
+              scoredInspections.length;
+
+    final unifiedOpenCapa = unifiedInspections.fold<int>(
+      0,
+      (total, report) => total + report.openCapaCount,
+    );
+
+    final unifiedInProgressCapa = unifiedInspections.fold<int>(
+      0,
+      (total, report) => total + report.inProgressCapaCount,
+    );
+
+    final unifiedClosedCapa = unifiedInspections.fold<int>(
+      0,
+      (total, report) => total + report.closedCapaCount,
+    );
     final openIncidents = incidents.where((incident) {
       return !incident.toLowerCase().contains('status: closed');
     }).toList();
     final nearMissRecords = incidents.where((incident) {
       return incident.toLowerCase().contains('type: near miss');
     }).toList();
-    int completedActions = 0;
-    int activeActions = 0;
     int overdue = 0;
+
     for (final action in actions) {
       final text = action.toLowerCase();
 
-      if (text.contains('status: closed') ||
-          text.contains('status: completed')) {
-        completedActions++;
-      } else {
-        activeActions++;
+      final isClosed =
+          text.contains('status: closed') || text.contains('status: completed');
 
-        if (action.contains('Due Date:')) {
-          final dueDateText = action
-              .split('Due Date:')[1]
-              .split('\n')[0]
-              .trim();
+      if (isClosed || !action.contains('Due Date:')) {
+        continue;
+      }
 
-          final dueDate = DateTime.tryParse(dueDateText);
+      final dueDateText = action.split('Due Date:')[1].split('\n')[0].trim();
 
-          if (dueDate != null) {
-            final today = DateUtils.dateOnly(DateTime.now());
-            final dueDay = DateUtils.dateOnly(dueDate);
+      final dueDate = DateTime.tryParse(dueDateText);
 
-            if (dueDay.isBefore(today)) {
-              overdue++;
-            }
-          }
+      if (dueDate != null) {
+        final today = DateUtils.dateOnly(DateTime.now());
+        final dueDay = DateUtils.dateOnly(dueDate);
+
+        if (dueDay.isBefore(today)) {
+          overdue++;
         }
       }
     }
@@ -96,11 +143,49 @@ class _DashboardPageState extends State<DashboardPage> {
 
       return risk == 'high' || risk == 'critical';
     }).toList();
+    final today = DateUtils.dateOnly(DateTime.now());
+    final calculatedWeeklyScores = <int>[];
+
+    for (int daysAgo = 6; daysAgo >= 0; daysAgo--) {
+      final targetDate = today.subtract(Duration(days: daysAgo));
+
+      final dailyRecords = inspectionRecords.where((record) {
+        final recordDate = DateUtils.dateOnly(record.createdAt);
+        return recordDate == targetDate;
+      }).toList();
+
+      if (dailyRecords.isEmpty) {
+        calculatedWeeklyScores.add(0);
+      } else {
+        final totalScore = dailyRecords.fold<double>(0, (sum, record) {
+          final risk = record.riskLevel.toLowerCase();
+
+          if (risk == 'low') return sum + 95;
+          if (risk == 'medium') return sum + 80;
+          if (risk == 'high') return sum + 60;
+          if (risk == 'critical') return sum + 40;
+
+          return sum + 75;
+        });
+
+        calculatedWeeklyScores.add((totalScore / dailyRecords.length).round());
+      }
+    }
+
+    final hazardLifecycleRecords = await StorageService.getHazardRecords();
+
+    final closedHazardLifecycleRecords = hazardLifecycleRecords
+        .where((record) => record.isClosed)
+        .length;
+
     if (!mounted) return;
 
     setState(() {
-      totalHazards = openHazards.length;
-      totalIncidents = openIncidents.length;
+      totalHazards = unifiedHazards.length;
+      hazardLifecycleTotal = hazardLifecycleRecords.length;
+
+      hazardLifecycleClosed = closedHazardLifecycleRecords;
+      totalIncidents = unifiedInvestigations.length;
       nearMisses = nearMissRecords.length;
       if (openIncidents.length >= 5 || nearMissRecords.length >= 3) {
         safetyForecast = 'High Risk';
@@ -109,14 +194,30 @@ class _DashboardPageState extends State<DashboardPage> {
       } else {
         safetyForecast = 'Low Risk';
       }
-      totalInspections = inspectionRecords.length;
-      closedActions = completedActions;
-      openActions = activeActions;
+      totalInspections = unifiedInspections.length;
+
+      closedActions = unifiedClosedCapa;
+
+      openActions = unifiedOpenCapa + unifiedInProgressCapa;
+
+      inspectionScore = unifiedInspectionScore ?? 0;
+      complianceRate = unifiedInspectionScore ?? 0;
       highRiskInspections = highRiskRecords.length;
       overdueActions = overdue;
+      weeklySafetyScores = calculatedWeeklyScores;
       safetyScore = 100 - (totalHazards * 2) - (totalIncidents * 5);
       safetyScore = safetyScore.clamp(0, 100);
     });
+  }
+
+  int get liveTotalActionsCount => closedActions + openActions;
+
+  double get liveCapaCompletionRate {
+    if (liveTotalActionsCount == 0) {
+      return 0;
+    }
+
+    return closedActions / liveTotalActionsCount;
   }
 
   String get safetyAlertMessage {
@@ -156,7 +257,7 @@ class _DashboardPageState extends State<DashboardPage> {
           'assign responsible persons.';
     }
 
-    if (capaCompletionRate < 0.75 && totalActionsCount > 0) {
+    if (liveCapaCompletionRate < 0.75 && liveTotalActionsCount > 0) {
       return 'CAPA completion is below 75%. Follow up with responsible persons '
           'and confirm target dates.';
     }
@@ -166,17 +267,15 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   double get hazardControlRate {
-    final total = totalHazards + closedActions;
-
-    if (total == 0) {
+    if (hazardLifecycleTotal == 0) {
       return 0;
     }
 
-    return closedActions / total;
+    return hazardLifecycleClosed / hazardLifecycleTotal;
   }
 
   String get executiveSummary {
-    final capaPercent = (capaCompletionRate * 100).round();
+    final capaPercent = (liveCapaCompletionRate * 100).round();
 
     if (safetyScore < 60) {
       return 'Critical safety performance. Immediate leadership intervention, '
@@ -184,9 +283,9 @@ class _DashboardPageState extends State<DashboardPage> {
     }
 
     if (totalIncidents > 0) {
-      return 'There are $totalIncidents open incident(s). CAPA completion is '
-          '$capaPercent%. Incident investigation and action assignment should '
-          'remain the management priority.';
+      return '$totalIncidents investigation(s) are recorded in Sentinel HSE. '
+          'CAPA completion is $capaPercent%. Continue investigation follow-up '
+          'and corrective action closure as required.';
     }
 
     if (totalHazards >= 10) {
@@ -222,22 +321,12 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  int get totalActionsCount {
-    return openActions + closedActions;
-  }
-
-  double get capaCompletionRate {
-    if (totalActionsCount == 0) {
-      return 0;
-    }
-
-    return closedActions / totalActionsCount;
-  }
-
   Future<void> openInspection(BuildContext context) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const InspectionPage()),
+      MaterialPageRoute(
+        builder: (context) => const InspectionTemplateSelectionPage(),
+      ),
     );
 
     await loadDashboardData();
@@ -342,6 +431,164 @@ class _DashboardPageState extends State<DashboardPage> {
     await loadDashboardData();
   }
 
+  String userName = 'User';
+  String jobTitle = '';
+  String company = '';
+  String projectSite = '';
+  String clientName = '';
+
+  BrandingSettings branding = BrandingSettings.defaults();
+
+  File? brandingLogo;
+  Future<void> _loadLastLTIDate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedDate = prefs.getString('lastLTIDate');
+
+    if (savedDate == null || savedDate.isEmpty) {
+      return;
+    }
+
+    final parsedDate = DateTime.tryParse(savedDate);
+
+    if (parsedDate == null || !mounted) {
+      return;
+    }
+
+    final today = DateTime.now();
+    final startDate = DateTime(
+      parsedDate.year,
+      parsedDate.month,
+      parsedDate.day,
+    );
+    final currentDate = DateTime(today.year, today.month, today.day);
+
+    setState(() {
+      lastLTIDate = parsedDate;
+      daysWithoutLTI = currentDate.difference(startDate).inDays;
+    });
+  }
+
+  Future<void> _loadBranding() async {
+    final loadedBranding = await BrandingService.load();
+
+    final loadedLogo = await BrandingService.getLogoFile(
+      loadedBranding.logoPath,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      branding = loadedBranding;
+      brandingLogo = loadedLogo;
+
+      company = loadedBranding.companyName;
+      projectSite = loadedBranding.projectSiteName;
+      clientName = loadedBranding.clientName;
+    });
+  }
+
+  Future<void> _loadUserName() async {
+    final user = Supabase.instance.client.auth.currentUser;
+
+    if (user != null) {
+      final profile = await Supabase.instance.client
+          .from('profiles')
+          .select('full_name, job_title')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (profile != null && mounted) {
+        final cloudName = profile['full_name']?.toString().trim() ?? '';
+        final cloudJobTitle = profile['job_title']?.toString().trim() ?? '';
+
+        if (cloudName.isNotEmpty) {
+          setState(() {
+            userName = cloudName;
+            jobTitle = cloudJobTitle;
+          });
+
+          return;
+        }
+      }
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final savedName = prefs.getString('userName');
+    final savedJobTitle = prefs.getString('jobTitle');
+
+    if (savedName != null && savedName.isNotEmpty && mounted) {
+      setState(() {
+        userName = savedName;
+        jobTitle = savedJobTitle ?? '';
+      });
+    } else if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showNameDialog();
+      });
+    }
+  }
+
+  Future<void> _showNameDialog() async {
+    final controller = TextEditingController();
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Welcome to Sentinel HSE'),
+          content: TextField(
+            controller: controller,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(
+              labelText: 'Enter your name',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () async {
+                final name = controller.text.trim();
+
+                if (name.isEmpty) {
+                  return;
+                }
+
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('userName', name);
+
+                if (!mounted) return;
+
+                setState(() {
+                  userName = name;
+                });
+
+                if (!context.mounted) return;
+
+                Navigator.of(context).pop();
+              },
+              child: const Text('Continue'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+
+    if (hour < 12) {
+      return 'Good Morning';
+    } else if (hour < 17) {
+      return 'Good Afternoon';
+    } else {
+      return 'Good Evening';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -349,8 +596,22 @@ class _DashboardPageState extends State<DashboardPage> {
       appBar: AppBar(
         title: const Text('Sentinel HSE'),
         centerTitle: true,
-        backgroundColor: Colors.blue,
+        backgroundColor: Color(branding.primaryColorValue),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsPage()),
+              );
+
+              await _loadUserName();
+              await _loadBranding();
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -358,10 +619,59 @@ class _DashboardPageState extends State<DashboardPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Good Evening, Ian 🤠',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              Text(
+                '${_getGreeting()},\n$userName 🤠',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
+              if (jobTitle.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  jobTitle,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+              if (company.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  company,
+                  style: const TextStyle(fontSize: 15, color: Colors.black54),
+                ),
+              ],
+              if (brandingLogo != null) ...[
+                const SizedBox(height: 12),
+                Center(
+                  child: Container(
+                    constraints: const BoxConstraints(
+                      maxWidth: 180,
+                      maxHeight: 90,
+                    ),
+                    child: Image.file(brandingLogo!, fit: BoxFit.contain),
+                  ),
+                ),
+              ],
+
+              if (projectSite.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Project / Site: $projectSite',
+                  style: const TextStyle(fontSize: 14, color: Colors.black54),
+                ),
+              ],
+
+              if (clientName.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Client: $clientName',
+                  style: const TextStyle(fontSize: 14, color: Colors.black54),
+                ),
+              ],
               const SizedBox(height: 8),
               const Text(
                 'AI Powered Safety Management',
@@ -432,7 +742,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           ),
                         ),
                         Text(
-                          '${(capaCompletionRate * 100).round()}%',
+                          '${(liveCapaCompletionRate * 100).round()}%',
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -443,7 +753,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                     const SizedBox(height: 12),
                     LinearProgressIndicator(
-                      value: capaCompletionRate,
+                      value: liveCapaCompletionRate,
                       minHeight: 10,
                       borderRadius: BorderRadius.circular(10),
                       backgroundColor: Colors.grey.shade200,
@@ -451,7 +761,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      '$closedActions of $totalActionsCount corrective actions completed',
+                      '$closedActions of $liveTotalActionsCount corrective actions completed',
                       style: const TextStyle(
                         fontSize: 13,
                         color: Colors.black54,
@@ -644,14 +954,14 @@ class _DashboardPageState extends State<DashboardPage> {
                     const SizedBox(height: 18),
                     _performanceBar(
                       label: 'CAPA Completion',
-                      value: capaCompletionRate,
+                      value: liveCapaCompletionRate,
                       color: Colors.green,
                     ),
 
                     const SizedBox(height: 16),
 
                     _performanceBar(
-                      label: 'Hazard Control',
+                      label: 'Hazard Closure',
                       value: hazardControlRate,
                       color: Colors.orange,
                     ),
@@ -777,11 +1087,18 @@ class _DashboardPageState extends State<DashboardPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _statCard(
-                      title: 'Incidents',
+                      title: 'Investigations',
                       value: totalIncidents.toString(),
-                      icon: Icons.report_problem,
+                      icon: Icons.manage_search,
                       color: Colors.red,
-                      onTap: () => openIncidentHistoryPage(context),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const InvestigationHomePage(),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -997,6 +1314,48 @@ class _DashboardPageState extends State<DashboardPage> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const ReportsCenterPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  moduleCard(
+                    context,
+                    'Monthly HSE',
+                    Icons.calendar_month_outlined,
+                    Colors.indigo,
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MonthlyHseReportPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  moduleCard(
+                    context,
+                    'Smart Alerts',
+                    Icons.notifications_active_outlined,
+                    Colors.deepOrange,
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SmartAlertsPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  moduleCard(
+                    context,
+                    'Team Members',
+                    Icons.groups_outlined,
+                    Colors.teal,
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const TeamMembersPage(),
                         ),
                       );
                     },
